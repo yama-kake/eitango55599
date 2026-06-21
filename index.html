@@ -203,6 +203,9 @@
     <div class="tab" data-mode="grow">🌳 樹</div>
     <div class="tab" data-mode="settings">⚙️ 設定</div>
   </div>
+  <div style="text-align:center;font-size:10px;color:var(--sub);margin-top:7px;letter-spacing:.5px">
+    収録 <span id="wc">–</span> 語 ・ v<span id="ver">–</span>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -1205,6 +1208,8 @@ $("#deck").innerHTML=
 $("#deck").onchange=e=>{ deck=e.target.value; RQ=null; startSession(); render(); };
 $("#order").value=ST.order;
 $("#order").onchange=e=>{ ST.order=e.target.value; save(); startSession(); render(); };
+const APP_VER="2026-06-22d";
+$("#wc").textContent=WORDS.length; $("#ver").textContent=APP_VER;
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 document.querySelectorAll(".tab").forEach(t=>{ t.onclick=()=>{
   document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active");
