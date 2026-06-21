@@ -30,7 +30,7 @@
 
   .deckrow{display:flex; align-items:center; gap:8px; margin:4px 4px 6px;}
   .deckrow label{font-size:12px; color:var(--sub);}
-  select#deck{flex:1; background:var(--card2); color:var(--text); border:1px solid #343a66;
+  .deckrow select{flex:1; background:var(--card2); color:var(--text); border:1px solid #343a66;
     border-radius:12px; padding:9px 12px; font-size:14px; font-weight:700;}
 
   .progress{height:6px; background:var(--card); border-radius:6px; overflow:hidden; margin:4px 4px 4px;}
@@ -128,6 +128,11 @@
   @keyframes ping{0%{box-shadow:0 0 0 0 rgba(91,108,255,.5);}100%{box-shadow:0 0 0 28px rgba(91,108,255,0);}}
   .spkhint{color:var(--sub); font-size:13px;}
   .replay{background:var(--card2); color:var(--text); border:none; padding:9px 18px; border-radius:20px; font-size:13px; cursor:pointer;}
+  .say{display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%;
+    border:none; background:var(--card2); color:var(--accent2); font-size:15px; cursor:pointer; vertical-align:middle; margin-left:8px; padding:0; flex:none;}
+  .say:active{transform:scale(.88);}
+  .say.sm{width:25px; height:25px; font-size:12px; margin-left:6px;}
+  .say.playing{background:var(--accent); color:#fff;}
 
   .grow{display:flex; flex-direction:column; align-items:center; text-align:center; padding:8px 0;}
   .grow svg.tree{width:100%; max-width:320px; height:260px;}
@@ -175,6 +180,14 @@
     <label>コース</label>
     <select id="deck"></select>
   </div>
+  <div class="deckrow">
+    <label>出題順</label>
+    <select id="order">
+      <option value="weak">🎯 苦手優先（おすすめ）</option>
+      <option value="seq">順番どおり</option>
+      <option value="shuffle">🔀 シャッフル</option>
+    </select>
+  </div>
 
   <div class="progress"><div id="bar"></div></div>
   <div class="counter" id="counter"></div>
@@ -188,6 +201,7 @@
     <div class="tab" data-mode="listen">🔊 音声</div>
     <div class="tab" data-mode="review">📅 復習</div>
     <div class="tab" data-mode="grow">🌳 樹</div>
+    <div class="tab" data-mode="settings">⚙️ 設定</div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -196,11 +210,27 @@
 /* ============ 語源グループ ============ */
 const GROUPS={
   ject :{root:"ject",        meaning:"投げる", icon:"🏐", theme:"throw"},
-  spect:{root:"spect / spic",meaning:"見る",   icon:"👀", theme:"look"}
+  spect:{root:"spect / spic",meaning:"見る",   icon:"👀", theme:"look"},
+  port :{root:"port",        meaning:"運ぶ",   icon:"📦", theme:"carry"},
+  tract:{root:"tract",       meaning:"引く",   icon:"🪢", theme:"pull"},
+  mit  :{root:"mit / miss",  meaning:"送る",   icon:"✉️", theme:"send"},
+  duct :{root:"duc / duct",  meaning:"導く",   icon:"🐤", theme:"lead"},
+  script:{root:"scrib / script",meaning:"書く",icon:"✍️", theme:"write"}
 };
 const DIR={inject:"in",eject:"out",reject:"back",project:"fwd",object:"at",subject:"down",trajectory:"arc",conjecture:"together"};
 const DIRLABEL={in:"in- ＝ 中へ投げる",out:"e- ＝ 外へ投げる",back:"re- ＝ 後ろへ投げ返す",fwd:"pro- ＝ 前へ投げる",
   at:"ob- ＝ 向かって投げる",down:"sub- ＝ 下へ投げる",arc:"tra- ＝ 横切って投げる",together:"con- ＝ 共に投げ合う"};
+const PORTDIR={import:"in",export:"out",transport:"across",support:"up",report:"back",opportunity:"at",portable:"gen",portion:"gen",porter:"gen"};
+const PORTLABEL={in:"im-(in) ＝ 中へ運び込む",out:"ex- ＝ 外へ運び出す",across:"trans- ＝ 越えて運ぶ",
+  up:"sup-(sub) ＝ 下から支え運ぶ",back:"re- ＝ 元へ運び戻す",at:"op-(ob) ＝ 港へ向かう（好機）",gen:"port ＝ 運ぶ"};
+const TRACTDIR={attract:"to",extract:"out",contract:"together",subtract:"back",distract:"apart",abstract:"out",retract:"back",traction:"to"};
+const TRACTLABEL={to:"自分の方へ引き寄せる",out:"外へ引き出す・抜く",together:"一緒に引く→契約/収縮",back:"引き戻す・取り去る",apart:"引き離す",gen:"引く"};
+const MITDIR={transmit:"across",emit:"out",submit:"down",admit:"in",omit:"apart",permit:"fwd",dismiss:"apart",mission:"gen"};
+const MITLABEL={across:"越えて送る→伝達",out:"外へ送る→放出",down:"下へ送る→提出",in:"中へ送り入れる→受入",apart:"離して送る→省く/退ける",fwd:"通して送る→許可",gen:"送る"};
+const DUCTDIR={produce:"fwd",conduct:"together",introduce:"in",reduce:"back",induce:"in",deduce:"down",abduct:"apart",duct:"gen"};
+const DUCTLABEL={fwd:"前へ導く→生産",together:"共に導く→指揮/伝導",in:"中へ導く→導入/誘発",back:"戻して導く→減らす",down:"結論へ導く→推論",apart:"引き離して導く→外す",gen:"導く"};
+const SCRIPTDIR={describe:"down",prescribe:"fwd",transcribe:"across",subscribe:"down",inscribe:"in",manuscript:"gen"};
+const SCRIPTLABEL={down:"詳しく書く→記述",fwd:"前もって書く→処方",across:"書き写す→転写",in:"中に刻む",gen:"書く"};
 
 /* ============ 単語データ ============ */
 const A="<b class='ac'>", _="</b>";  // アクセント強調の短縮
@@ -310,16 +340,443 @@ const WORDS=[
   {id:"conspicuous",group:"spect",level:7,tier:"・",word:"conspicuous",kana:`コン${A}スピ${_}キュアス`,pos:"形容詞",meaning:"目立つ・はっきり見える",
    roots:"con-(完全に) + spic(見る) + -uous → すっかり見える",ex:{en:"The rash was <u>conspicuous</u> on her cheek.",ja:"その発疹は頬にはっきり目立っていた。"}},
   {id:"introspection",group:"spect",level:8,tier:"・",word:"introspection",kana:`イントロ${A}スペ${_}クション`,pos:"名詞",meaning:"内省・自己反省",
-   roots:"intro-(内を) + spect(見る) + -ion → 内面を見ること",ex:{en:"Recovery often requires honest <u>introspection</u>.",ja:"回復にはしばしば正直な内省が必要だ。"}}
+   roots:"intro-(内を) + spect(見る) + -ion → 内面を見ること",ex:{en:"Recovery often requires honest <u>introspection</u>.",ja:"回復にはしばしば正直な内省が必要だ。"}},
+
+  /* ---- 語源グループ：port（運ぶ） ---- */
+  {id:"import",group:"port",level:3,tier:"★",word:"import",kana:`イン${A}ポー${_}ト / ${A}イン${_}ポート`,pos:"動・名",meaning:"輸入する／取り込み",
+   roots:"im-(in：中へ) + port(運ぶ) → 中へ運び込む",
+   ex:{en:"Japan <u>imports</u> most of its oil.",ja:"日本は石油の大半を輸入する。"},
+   forms:[{w:"important",pos:"形容詞",mean:"重要な",rule:"中に運び込む価値→重要"},{w:"importer",pos:"名詞",mean:"輸入業者",rule:"-er：「～する人」"}],
+   daj:"院（いん）ポート、病院に物資を運び込む輸入係。",dajEn:"\"This import is important!\" said the busy port worker.（この輸入品は重要だ！）",
+   med:"分子生物学では『取り込み』。protein import into mitochondria＝ミトコンドリアへのタンパク質取り込み。",medEn:"The cell imports glucose for energy.（細胞はエネルギーのためブドウ糖を取り込む）"},
+  {id:"support",group:"port",level:3,tier:"★",word:"support",kana:`サ${A}ポー${_}ト`,pos:"動・名",meaning:"支える・支援（する）",
+   roots:"sup-(sub：下から) + port(運ぶ) → 下から支え運ぶ",
+   ex:{en:"The family <u>supported</u> the patient throughout.",ja:"家族はずっと患者を支えた。"},
+   forms:[{w:"supportive",pos:"形容詞",mean:"支持的な・支援的な",rule:"-ive：形容詞化"},{w:"supporter",pos:"名詞",mean:"支援者",rule:"-er"}],
+   daj:"差（さ）ポート、下から差し出して支えるサポート。",dajEn:"Without support, the report falls apart.（支えがないと報告書は崩れる）",
+   med:"life support＝生命維持、supportive care＝対症療法（支持療法）。ICU頻出。",medEn:"The patient needed ventilator support.（患者は人工呼吸器の補助を要した）"},
+  {id:"report",group:"port",level:3,tier:"★",word:"report",kana:`リ${A}ポー${_}ト`,pos:"動・名",meaning:"報告（する）・訴える",
+   roots:"re-(元へ) + port(運ぶ) → 情報を持ち帰って伝える",
+   ex:{en:"The patient <u>reported</u> chest pain.",ja:"患者は胸痛を訴えた（報告した）。"},
+   forms:[{w:"reporter",pos:"名詞",mean:"記者・報告者",rule:"-er：「～する人」"}],
+   daj:"利（り）ポート、利益を持ち帰って上司にリポート。",dajEn:"The reporter forgot to report the report!（記者が報告書の報告を忘れた）",
+   med:"case report＝症例報告。patient-reported outcome＝患者報告アウトカム。論文頻出。",medEn:"She reported no side effects after the dose.（彼女は服用後に副作用なしと報告した）"},
+  {id:"export",group:"port",level:3,tier:"☆",word:"export",kana:`イクス${A}ポー${_}ト / ${A}エクス${_}ポート`,pos:"動・名",meaning:"輸出する／搬出",
+   roots:"ex-(外へ) + port(運ぶ) → 外へ運び出す",
+   ex:{en:"The country <u>exports</u> rice and tea.",ja:"その国は米と茶を輸出する。"},
+   med:"細胞からの『排出・搬出』も export。nuclear export＝核外輸送。"},
+  {id:"transport",group:"port",level:4,tier:"☆",word:"transport",kana:`トランス${A}ポー${_}ト`,pos:"動・名",meaning:"輸送する／輸送",
+   roots:"trans-(越えて) + port(運ぶ) → 越えて運ぶ",
+   ex:{en:"Blood <u>transports</u> oxygen to the tissues.",ja:"血液は酸素を組織へ運ぶ。"},
+   med:"oxygen transport＝酸素運搬、active transport＝能動輸送（生理学の基本）。"},
+  {id:"opportunity",group:"port",level:4,tier:"☆",word:"opportunity",kana:`オポ${A}テュー${_}ニティ`,pos:"名詞",meaning:"機会・好機",
+   roots:"op-(ob：～に向かって) + port(港) → 船が港に向かう好機",
+   ex:{en:"This is a good <u>opportunity</u> to start treatment.",ja:"これは治療を始める良い機会だ。"},
+   med:"opportunistic infection＝日和見感染（免疫が弱った隙をつく感染）。"},
+  {id:"portable",group:"port",level:4,tier:"・",word:"portable",kana:`${A}ポー${_}タブル`,pos:"形容詞",meaning:"持ち運べる・携帯用の",
+   roots:"port(運ぶ) + -able(できる) → 運べる",ex:{en:"A <u>portable</u> X-ray machine was used.",ja:"ポータブルX線装置が使われた。"}},
+  {id:"portion",group:"port",level:5,tier:"・",word:"portion",kana:`${A}ポー${_}ション`,pos:"名詞",meaning:"部分・一人前",
+   roots:"port(運ぶ→分ける) + -ion → 運ばれた分け前",ex:{en:"A <u>portion</u> of the lung was removed.",ja:"肺の一部が切除された。"}},
+  {id:"porter",group:"port",level:5,tier:"・",word:"porter",kana:`${A}ポー${_}ター`,pos:"名詞",meaning:"運搬人・ポーター",
+   roots:"port(運ぶ) + -er(人) → 運ぶ人",ex:{en:"The <u>porter</u> carried the bags upstairs.",ja:"ポーターが荷物を上階へ運んだ。"}},
+
+  /* ---- 語源グループ：tract（引く） ---- */
+  {id:"attract",group:"tract",level:3,tier:"★",word:"attract",kana:`ア${A}トラ${_}クト`,pos:"動詞",meaning:"引きつける・魅了する",
+   roots:"at-(ad：～へ) + tract(引く) → 自分の方へ引き寄せる",
+   ex:{en:"Bright colors <u>attract</u> insects.",ja:"鮮やかな色は虫を引きつける。"},
+   forms:[{w:"attraction",pos:"名詞",mean:"魅力・引力",rule:"-tion：名詞化"},{w:"attractive",pos:"形容詞",mean:"魅力的な",rule:"-ive：形容詞化"}],
+   daj:"あっ、トラ来た！と注目を引きつけるアトラクト。",dajEn:"A magnet attracts metal — and attention.（磁石は金属と注目を引きつける）",
+   med:"chemotaxis（走化性）＝化学物質が細胞を引き寄せる(attract)現象。",medEn:"Inflammation attracts immune cells to the site.（炎症は免疫細胞を患部へ引き寄せる）"},
+  {id:"extract",group:"tract",level:4,tier:"★",word:"extract",kana:`イクス${A}トラ${_}クト / ${A}エクス${_}トラクト`,pos:"動・名",meaning:"抽出する・抜く／抽出物",
+   roots:"ex-(外へ) + tract(引く) → 外へ引き出す",
+   ex:{en:"The dentist will <u>extract</u> the bad tooth.",ja:"歯科医が悪い歯を抜きます。"},
+   forms:[{w:"extraction",pos:"名詞",mean:"抽出・抜歯",rule:"-tion：名詞化"}],
+   daj:"駅（えき）ストラクト、改札から人を外へ引き出す。",dajEn:"Extract the truth, like extracting a tooth.（歯を抜くように真実を引き出す）",
+   med:"tooth extraction＝抜歯、DNA extraction＝DNA抽出（分子実験の基本）。",medEn:"We extracted RNA from the tissue sample.（組織検体からRNAを抽出した）"},
+  {id:"contract",group:"tract",level:4,tier:"★",word:"contract",kana:`${A}コン${_}トラクト / コン${A}トラ${_}クト`,pos:"名・動",meaning:"契約／収縮する・(病気に)かかる",
+   roots:"con-(共に) + tract(引く) → 一緒に引き合う",
+   ex:{en:"The muscle <u>contracts</u> and then relaxes.",ja:"筋肉は収縮し、それから弛緩する。"},
+   forms:[{w:"contraction",pos:"名詞",mean:"収縮・陣痛・短縮",rule:"-tion：名詞化"}],
+   daj:"今夜（こんや）トラクト、契約書に一緒にサイン。",dajEn:"Sign the contract before you contract a cold!（風邪をひく前に契約しろ）",
+   med:"muscle contraction＝筋収縮、陣痛も contractions。contract a disease＝病気にかかる。",medEn:"The heart muscle contracts about 70 times a minute.（心筋は1分に約70回収縮する）"},
+  {id:"subtract",group:"tract",level:3,tier:"☆",word:"subtract",kana:`サブ${A}トラ${_}クト`,pos:"動詞",meaning:"引く・引き算する",
+   roots:"sub-(下へ) + tract(引く) → 下へ取り去る",ex:{en:"<u>Subtract</u> five from ten.",ja:"10から5を引く。"}},
+  {id:"distract",group:"tract",level:4,tier:"☆",word:"distract",kana:`ディス${A}トラ${_}クト`,pos:"動詞",meaning:"(注意を)そらす・気を散らす",
+   roots:"dis-(離して) + tract(引く) → 注意を引き離す",ex:{en:"Loud noise can <u>distract</u> the surgeon.",ja:"大きな音は外科医の気を散らしうる。"},med:"distraction＝注意をそらすこと。小児処置の疼痛緩和にも応用。"},
+  {id:"abstract",group:"tract",level:5,tier:"☆",word:"abstract",kana:`${A}アブ${_}ストラクト`,pos:"形・名",meaning:"抽象的な／要約・抄録",
+   roots:"abs-(離して) + tract(引く) → 本質を引き抜いたもの",ex:{en:"Read the <u>abstract</u> before the full paper.",ja:"全文の前に抄録を読む。"},med:"論文の abstract＝抄録（要旨）。最初に読む要約。"},
+  {id:"retract",group:"tract",level:6,tier:"・",word:"retract",kana:`リ${A}トラ${_}クト`,pos:"動詞",meaning:"撤回する・引っ込める",
+   roots:"re-(後ろへ) + tract(引く) → 引き戻す",ex:{en:"The author had to <u>retract</u> the paper.",ja:"著者は論文を撤回せざるを得なかった。"}},
+  {id:"traction",group:"tract",level:6,tier:"・",word:"traction",kana:`${A}トラ${_}クション`,pos:"名詞",meaning:"牽引・けん引力",
+   roots:"tract(引く) + -ion → 引くこと",ex:{en:"The broken leg was placed in <u>traction</u>.",ja:"折れた脚は牽引(けん引)された。"}},
+
+  /* ---- 語源グループ：mit / miss（送る） ---- */
+  {id:"transmit",group:"mit",level:4,tier:"★",word:"transmit",kana:`トランス${A}ミ${_}ット`,pos:"動詞",meaning:"伝達する・送信する・(病気を)うつす",
+   roots:"trans-(越えて) + mit(送る) → 越えて送る",
+   forms:[{w:"transmission",pos:"名詞",mean:"伝達・感染伝播",rule:"-sion：名詞化"}],
+   ex:{en:"Mosquitoes can <u>transmit</u> the virus.",ja:"蚊はそのウイルスを媒介しうる。"},
+   daj:"トランス見（み）っと、電波を越えて送信。",dajEn:"Don't transmit your cold across the room!（部屋越しに風邪をうつすな）",
+   med:"disease transmission＝感染伝播、airborne transmission＝空気感染。感染症の必須語。",medEn:"The virus is transmitted through droplets.（そのウイルスは飛沫で伝播する）"},
+  {id:"emit",group:"mit",level:5,tier:"★",word:"emit",kana:`イ${A}ミ${_}ット`,pos:"動詞",meaning:"放出する・発する",
+   roots:"e-(外へ) + mit(送る) → 外へ送り出す",
+   forms:[{w:"emission",pos:"名詞",mean:"放出・排出",rule:"-sion：名詞化"}],
+   ex:{en:"The cells <u>emit</u> a faint light.",ja:"その細胞は微かな光を放つ。"},
+   daj:"いー、ミット！外へ放出するエミット。",dajEn:"Stars emit light; volcanoes emit smoke.（星は光を、火山は煙を放つ）",
+   med:"PET（positron emission tomography）＝陽電子放出断層撮影。emission＝放出。",medEn:"Damaged tissue emits inflammatory signals.（傷ついた組織は炎症シグナルを放出する）"},
+  {id:"submit",group:"mit",level:4,tier:"★",word:"submit",kana:`サブ${A}ミ${_}ット`,pos:"動詞",meaning:"提出する・服従する",
+   roots:"sub-(下へ) + mit(送る) → 下へ差し出す",
+   forms:[{w:"submission",pos:"名詞",mean:"提出・服従",rule:"-sion：名詞化"}],
+   ex:{en:"<u>Submit</u> the form by Friday.",ja:"金曜までに用紙を提出して。"},
+   daj:"差（さ）ぶミット、下から書類を差し出す。",dajEn:"Submit the paper, then admit you're tired.（論文を提出し、それから疲れを認めよ）",
+   med:"submit a manuscript＝論文を投稿する。研究活動の頻出語。",medEn:"They submitted the study to a top journal.（彼らは研究を一流誌に投稿した）"},
+  {id:"admit",group:"mit",level:4,tier:"★",word:"admit",kana:`アド${A}ミ${_}ット`,pos:"動詞",meaning:"認める・入院(入場)させる",
+   roots:"ad-(～へ) + mit(送る) → 中へ送り入れる",
+   forms:[{w:"admission",pos:"名詞",mean:"入院・入場・容認",rule:"-sion：名詞化"}],
+   ex:{en:"The patient was <u>admitted</u> to the hospital.",ja:"その患者は入院した。"},
+   daj:"あど、ミット！中へ受け入れてアドミット。",dajEn:"Admit it — you need to be admitted.（認めろ、君は入院が必要だ）",
+   med:"admit to hospital＝入院させる、admission＝入院、on admission＝入院時。",medEn:"She was admitted for observation overnight.（彼女は一晩経過観察のため入院した）"},
+  {id:"omit",group:"mit",level:5,tier:"☆",word:"omit",kana:`オ${A}ミ${_}ット`,pos:"動詞",meaning:"省く・除外する",
+   roots:"o-(ob：離して) + mit(送る) → 外へやる→省く",ex:{en:"Do not <u>omit</u> any details.",ja:"細部を省略しないこと。"},med:"omission＝省略・脱落。記録の欠落を指すことも。"},
+  {id:"permit",group:"mit",level:4,tier:"☆",word:"permit",kana:`パ${A}ミ${_}ット / ${A}パー${_}ミット`,pos:"動・名",meaning:"許可する／許可証",
+   roots:"per-(通して) + mit(送る) → 通すのを許す",ex:{en:"Smoking is not <u>permitted</u> here.",ja:"ここは喫煙が許可されていない。"},med:"if the condition permits＝状態が許せば、の言い回し。"},
+  {id:"dismiss",group:"mit",level:5,tier:"・",word:"dismiss",kana:`ディス${A}ミ${_}ス`,pos:"動詞",meaning:"退ける・解散させる・解雇する",
+   roots:"dis-(離して) + miss(送る) → 払い送る",ex:{en:"The doctor <u>dismissed</u> the diagnosis.",ja:"医師はその診断を退けた。"}},
+  {id:"mission",group:"mit",level:4,tier:"・",word:"mission",kana:`${A}ミ${_}ッション`,pos:"名詞",meaning:"使命・任務",
+   roots:"miss(送る) + -ion → 送られた務め",ex:{en:"Their <u>mission</u> was to save lives.",ja:"彼らの使命は命を救うことだった。"}},
+
+  /* ---- 語源グループ：duc / duct（導く） ---- */
+  {id:"produce",group:"duct",level:3,tier:"★",word:"produce",kana:`プロ${A}デュー${_}ス / ${A}プロ${_}デュース`,pos:"動・名",meaning:"生産する・生み出す／農産物",
+   roots:"pro-(前へ) + duce(導く) → 前へ導き出す",
+   forms:[{w:"production",pos:"名詞",mean:"生産",rule:"-tion：名詞化"},{w:"product",pos:"名詞",mean:"製品・産物",rule:"-t"}],
+   ex:{en:"The gland <u>produces</u> a hormone.",ja:"その腺はホルモンを産生する。"},
+   daj:"プロ、デュース！前へ導いて生産する。",dajEn:"A good producer produces good products.（良いプロデューサーは良い製品を生む）",
+   med:"produce antibodies/hormones＝抗体・ホルモンを産生する。生理学で頻出。",medEn:"B cells produce antibodies against the virus.（B細胞はウイルスへの抗体を産生する）"},
+  {id:"conduct",group:"duct",level:4,tier:"★",word:"conduct",kana:`コン${A}ダ${_}クト / ${A}コン${_}ダクト`,pos:"動・名",meaning:"行う・指揮する・伝導する／行動",
+   roots:"con-(共に) + duct(導く) → まとめて導く",
+   forms:[{w:"conduction",pos:"名詞",mean:"伝導",rule:"-tion：名詞化"},{w:"conductor",pos:"名詞",mean:"指揮者・伝導体",rule:"-or"}],
+   ex:{en:"They <u>conducted</u> a clinical trial.",ja:"彼らは臨床試験を実施した。"},
+   daj:"こん、ダクト！皆を導いて指揮するコンダクト。",dajEn:"Conduct yourself well while you conduct the study.（研究を行う間は行儀よく）",
+   med:"nerve conduction＝神経伝導、conduct a study＝研究を実施する。",medEn:"The nerve conducts electrical signals to the muscle.（神経は電気信号を筋へ伝導する）"},
+  {id:"introduce",group:"duct",level:3,tier:"★",word:"introduce",kana:`イントロ${A}デュー${_}ス`,pos:"動詞",meaning:"紹介する・導入する",
+   roots:"intro-(中へ) + duce(導く) → 中へ導き入れる",
+   forms:[{w:"introduction",pos:"名詞",mean:"紹介・導入・序論",rule:"-tion：名詞化"}],
+   ex:{en:"A new drug was <u>introduced</u> last year.",ja:"昨年、新薬が導入された。"},
+   daj:"イントロでデュース、曲の導入で人を引き込む。",dajEn:"Let me introduce a new method into the lab.（研究室に新手法を導入させて）",
+   med:"introduction＝（論文の）序論、introduce a gene＝遺伝子を導入する。",medEn:"The gene was introduced into the cells.（その遺伝子は細胞へ導入された）"},
+  {id:"reduce",group:"duct",level:3,tier:"★",word:"reduce",kana:`リ${A}デュー${_}ス`,pos:"動詞",meaning:"減らす・縮小する",
+   roots:"re-(後ろへ) + duce(導く) → 後ろへ導く→減らす",
+   forms:[{w:"reduction",pos:"名詞",mean:"減少・整復",rule:"-tion：名詞化"}],
+   ex:{en:"This drug <u>reduces</u> blood pressure.",ja:"この薬は血圧を下げる。"},
+   daj:"リッ、デュース！後ろへ導いて減らすリデュース。",dajEn:"Reduce the dose to reduce the risk.（リスクを減らすため用量を減らす）",
+   med:"reduce risk/dose＝リスク・用量を減らす。整形外科では reduction＝整復。",medEn:"Quitting smoking reduces the risk of cancer.（禁煙は癌のリスクを減らす）"},
+  {id:"induce",group:"duct",level:5,tier:"☆",word:"induce",kana:`イン${A}デュー${_}ス`,pos:"動詞",meaning:"誘発する・引き起こす",
+   roots:"in-(中へ) + duce(導く) → 中へ導き入れて起こす",ex:{en:"The drug can <u>induce</u> sleep.",ja:"その薬は眠気を誘発しうる。"},med:"induce labor＝分娩誘発、drug-induced＝薬剤性の。頻出。"},
+  {id:"deduce",group:"duct",level:6,tier:"☆",word:"deduce",kana:`ディ${A}デュー${_}ス`,pos:"動詞",meaning:"推論する・演繹する",
+   roots:"de-(下へ) + duce(導く) → 結論へ導く",ex:{en:"We can <u>deduce</u> the cause from the data.",ja:"データから原因を推論できる。"},med:"鑑別診断＝症状から原因を deduce する思考プロセス。"},
+  {id:"abduct",group:"duct",level:6,tier:"・",word:"abduct",kana:`アブ${A}ダ${_}クト`,pos:"動詞",meaning:"誘拐する・(医)外転する",
+   roots:"ab-(離して) + duct(導く) → 引き離して導く",ex:{en:"This muscle <u>abducts</u> the arm.",ja:"この筋は腕を外転させる。"}},
+  {id:"duct",group:"duct",level:5,tier:"・",word:"duct",kana:`${A}ダ${_}クト`,pos:"名詞",meaning:"導管・(体の)管",
+   roots:"duct(導く) → 導く管",ex:{en:"The bile <u>duct</u> carries bile to the gut.",ja:"胆管は胆汁を腸へ運ぶ。"}},
+
+  /* ---- 語源グループ：scrib / script（書く） ---- */
+  {id:"describe",group:"script",level:3,tier:"★",word:"describe",kana:`ディス${A}クラ${_}イブ`,pos:"動詞",meaning:"描写する・記述する",
+   roots:"de-(下に・詳しく) + scribe(書く) → 詳しく書き表す",
+   forms:[{w:"description",pos:"名詞",mean:"描写・記述",rule:"-tion：名詞化"},{w:"descriptive",pos:"形容詞",mean:"記述的な",rule:"-ive"}],
+   ex:{en:"Please <u>describe</u> your symptoms.",ja:"症状を説明してください。"},
+   daj:"ですクライブ、刑事が事件を詳しく記述する。",dajEn:"Describe the scribe who can't describe!（描写できない書記を描写せよ）",
+   med:"病歴聴取で『症状を述べる』。describe the pain＝痛みを表現する。",medEn:"She described a sharp pain in her chest.（彼女は胸の鋭い痛みを訴えた）"},
+  {id:"prescribe",group:"script",level:4,tier:"★",word:"prescribe",kana:`プリ${A}スクラ${_}イブ`,pos:"動詞",meaning:"処方する・指示する",
+   roots:"pre-(前もって) + scribe(書く) → 前もって書いて指示する",
+   forms:[{w:"prescription",pos:"名詞",mean:"処方箋",rule:"-tion：名詞化"}],
+   ex:{en:"The doctor <u>prescribed</u> antibiotics.",ja:"医師は抗生物質を処方した。"},
+   daj:"プリッとスクライブ、医者がサッと処方を書く。",dajEn:"The doctor prescribes; the pharmacy provides.（医者が処方し、薬局が出す）",
+   med:"prescription＝処方箋(Rx)、prescribe a drug＝薬を処方する。臨床必須。",medEn:"He was prescribed a low dose at first.（彼はまず低用量を処方された）"},
+  {id:"transcribe",group:"script",level:6,tier:"★",word:"transcribe",kana:`トランス${A}クラ${_}イブ`,pos:"動詞",meaning:"書き写す・転写する",
+   roots:"trans-(移して) + scribe(書く) → 書き移す",
+   forms:[{w:"transcription",pos:"名詞",mean:"転写",rule:"-tion：名詞化"}],
+   ex:{en:"DNA is <u>transcribed</u> into RNA.",ja:"DNAはRNAに転写される。"},
+   daj:"トランス国（こく）ライブ、音声を書き写す。",dajEn:"Transcribe the vibe into a scribe's notebook.（雰囲気を書記のノートに書き写す）",
+   med:"分子生物学の核心：transcription＝転写(DNA→RNA)。分子病理学で最頻出。",medEn:"This gene is actively transcribed in tumor cells.（この遺伝子は腫瘍細胞で活発に転写される）"},
+  {id:"subscribe",group:"script",level:4,tier:"☆",word:"subscribe",kana:`サブ${A}スクラ${_}イブ`,pos:"動詞",meaning:"定期購読する・同意する",
+   roots:"sub-(下に) + scribe(書く) → 下に署名する",ex:{en:"I <u>subscribe</u> to a medical journal.",ja:"私は医学雑誌を定期購読している。"},med:"subscribe to a theory＝説に賛同する、の用法も。"},
+  {id:"inscribe",group:"script",level:6,tier:"・",word:"inscribe",kana:`イン${A}スクラ${_}イブ`,pos:"動詞",meaning:"(中に)刻む・記す",
+   roots:"in-(中に) + scribe(書く) → 刻み込む",ex:{en:"His name was <u>inscribed</u> on the trophy.",ja:"彼の名がトロフィーに刻まれた。"}},
+  {id:"manuscript",group:"script",level:5,tier:"・",word:"manuscript",kana:`${A}マ${_}ニュスクリプト`,pos:"名詞",meaning:"原稿・写本",
+   roots:"manu-(手で) + script(書いた) → 手書きのもの",ex:{en:"The <u>manuscript</u> was sent to the journal.",ja:"原稿は雑誌に送られた。"}},
+
+  /* ---- 基礎（高校・TOEIC）バッチ1 ---- */
+  {id:"accept",level:2,tier:"・",word:"accept",kana:`アク${A}セ${_}プト`,pos:"動詞",meaning:"受け入れる",ex:{en:"Please <u>accept</u> my apology.",ja:"私の謝罪を受け入れてください。"}},
+  {id:"achieve",level:2,tier:"・",word:"achieve",kana:`ア${A}チー${_}ヴ`,pos:"動詞",meaning:"達成する",ex:{en:"She <u>achieved</u> her goal.",ja:"彼女は目標を達成した。"}},
+  {id:"affect",level:2,tier:"☆",word:"affect",kana:`ア${A}フェ${_}クト`,pos:"動詞",meaning:"影響する・冒す",ex:{en:"Stress <u>affects</u> your health.",ja:"ストレスは健康に影響する。"},med:"affect an organ＝臓器を冒す。病変が及ぶ意味でも使う。"},
+  {id:"allow",level:2,tier:"・",word:"allow",kana:`ア${A}ラ${_}ウ`,pos:"動詞",meaning:"許す・可能にする",ex:{en:"Smoking is not <u>allowed</u> here.",ja:"ここは喫煙が許されていない。"}},
+  {id:"amount",level:2,tier:"・",word:"amount",kana:`ア${A}マ${_}ウント`,pos:"名詞",meaning:"量・額",ex:{en:"A large <u>amount</u> of data was collected.",ja:"大量のデータが集められた。"}},
+  {id:"apply",level:2,tier:"☆",word:"apply",kana:`ア${A}プラ${_}イ`,pos:"動詞",meaning:"申し込む・適用する・塗る",ex:{en:"<u>Apply</u> the cream to the skin.",ja:"クリームを皮膚に塗る。"},med:"apply a dressing＝包帯を当てる。topical application＝局所適用。"},
+  {id:"approach",level:2,tier:"☆",word:"approach",kana:`ア${A}プロ${_}ウチ`,pos:"動・名",meaning:"近づく・取り組み（方）",ex:{en:"A new <u>approach</u> to treatment was tried.",ja:"治療への新しいアプローチが試された。"},med:"therapeutic approach＝治療方針。"},
+  {id:"appropriate",level:2,tier:"☆",word:"appropriate",kana:`ア${A}プロ${_}ウプリエト`,pos:"形容詞",meaning:"適切な",ex:{en:"Choose an <u>appropriate</u> dose.",ja:"適切な用量を選ぶ。"},med:"appropriate treatment＝適切な治療。頻出。"},
+  {id:"argue",level:2,tier:"・",word:"argue",kana:`${A}アー${_}ギュー`,pos:"動詞",meaning:"議論する・主張する",ex:{en:"They <u>argued</u> about the cause.",ja:"彼らは原因について議論した。"}},
+  {id:"arrange",level:2,tier:"・",word:"arrange",kana:`ア${A}レ${_}インジ`,pos:"動詞",meaning:"手配する・整える",ex:{en:"I'll <u>arrange</u> a meeting.",ja:"会議を手配します。"}},
+  {id:"attend",level:2,tier:"☆",word:"attend",kana:`ア${A}テ${_}ンド`,pos:"動詞",meaning:"出席する・世話をする",ex:{en:"A nurse <u>attended</u> the patient.",ja:"看護師が患者の世話をした。"},med:"attending physician＝主治医・指導医。"},
+  {id:"attitude",level:2,tier:"・",word:"attitude",kana:`${A}ア${_}ティテュード`,pos:"名詞",meaning:"態度・心構え",ex:{en:"She has a positive <u>attitude</u>.",ja:"彼女は前向きな態度だ。"}},
+  {id:"avoid",level:2,tier:"☆",word:"avoid",kana:`ア${A}ヴォイ${_}ド`,pos:"動詞",meaning:"避ける",ex:{en:"Patients should <u>avoid</u> alcohol.",ja:"患者は飲酒を避けるべきだ。"},med:"avoid risk factors＝危険因子を避ける。指導の頻出語。"},
+  {id:"aware",level:2,tier:"☆",word:"aware",kana:`ア${A}ウェ${_}ア`,pos:"形容詞",meaning:"気づいている",ex:{en:"Be <u>aware</u> of the side effects.",ja:"副作用に注意してください。"},med:"be aware of symptoms＝症状を自覚している。"},
+  {id:"balance",level:2,tier:"・",word:"balance",kana:`${A}バ${_}ランス`,pos:"名・動",meaning:"均衡・釣り合い",ex:{en:"The drug keeps the fluid <u>balance</u>.",ja:"その薬は体液の均衡を保つ。"}},
+  {id:"certain",level:2,tier:"・",word:"certain",kana:`${A}サー${_}トゥン`,pos:"形容詞",meaning:"確かな・ある一定の",ex:{en:"There is a <u>certain</u> risk.",ja:"一定のリスクがある。"}},
+  {id:"challenge",level:2,tier:"・",word:"challenge",kana:`${A}チャ${_}レンジ`,pos:"名・動",meaning:"課題・挑戦（する）",ex:{en:"Early diagnosis is a major <u>challenge</u>.",ja:"早期診断は大きな課題だ。"}},
+  {id:"claim",level:2,tier:"・",word:"claim",kana:`ク${A}レ${_}イム`,pos:"動・名",meaning:"主張する・要求する",ex:{en:"The study <u>claims</u> a strong effect.",ja:"その研究は強い効果を主張する。"}},
+  {id:"community",level:2,tier:"・",word:"community",kana:`コ${A}ミュー${_}ニティ`,pos:"名詞",meaning:"地域社会・共同体",ex:{en:"The local <u>community</u> joined the program.",ja:"地域社会がその計画に参加した。"}},
+  {id:"compare",level:2,tier:"☆",word:"compare",kana:`コン${A}ペ${_}ア`,pos:"動詞",meaning:"比較する",ex:{en:"We <u>compared</u> two treatment groups.",ja:"2つの治療群を比較した。"},med:"compared with controls＝対照群と比較して。論文頻出。"},
+  {id:"complete",level:2,tier:"☆",word:"complete",kana:`コン${A}プリー${_}ト`,pos:"形・動",meaning:"完全な・完成する",ex:{en:"She made a <u>complete</u> recovery.",ja:"彼女は完全に回復した。"},med:"complete remission＝完全寛解。"},
+  {id:"concern",level:2,tier:"☆",word:"concern",kana:`コン${A}サー${_}ン`,pos:"名・動",meaning:"懸念・関心（させる）",ex:{en:"Safety is the main <u>concern</u>.",ja:"安全性が主な懸念だ。"},med:"chief concern＝主訴(=chief complaint)に近い使い方も。"},
+  {id:"confirm",level:2,tier:"☆",word:"confirm",kana:`コン${A}ファー${_}ム`,pos:"動詞",meaning:"確認する・裏づける",ex:{en:"A biopsy <u>confirmed</u> the diagnosis.",ja:"生検が診断を確定した。"},med:"confirm the diagnosis＝確定診断。超頻出。"},
+  {id:"connect",level:2,tier:"・",word:"connect",kana:`コ${A}ネ${_}クト`,pos:"動詞",meaning:"つなぐ・関連づける",ex:{en:"The tube <u>connects</u> to the pump.",ja:"その管はポンプに接続する。"}},
+  {id:"contain",level:2,tier:"・",word:"contain",kana:`コン${A}テ${_}イン`,pos:"動詞",meaning:"含む・抑える",ex:{en:"This drug <u>contains</u> caffeine.",ja:"この薬はカフェインを含む。"}},
+  {id:"continue",level:2,tier:"☆",word:"continue",kana:`コン${A}ティ${_}ニュー`,pos:"動詞",meaning:"続ける・続く",ex:{en:"<u>Continue</u> the treatment for a week.",ja:"治療を1週間続けて。"},med:"continue medication＝服薬を継続する。"},
+  {id:"contribute",level:2,tier:"☆",word:"contribute",kana:`コン${A}トリ${_}ビュート`,pos:"動詞",meaning:"貢献する・一因となる",ex:{en:"Smoking <u>contributes</u> to lung cancer.",ja:"喫煙は肺がんの一因となる。"},med:"contributing factor＝寄与因子。"},
+  {id:"control",level:2,tier:"☆",word:"control",kana:`コン${A}トロー${_}ル`,pos:"名・動",meaning:"制御（する）・対照",ex:{en:"Good blood sugar <u>control</u> is vital.",ja:"良好な血糖コントロールが重要だ。"},med:"control group＝対照群、disease control＝疾患のコントロール。"},
+  {id:"decide",level:2,tier:"・",word:"decide",kana:`ディ${A}サイ${_}ド`,pos:"動詞",meaning:"決める",ex:{en:"They <u>decided</u> to operate.",ja:"彼らは手術を決めた。"}},
+  {id:"define",level:2,tier:"・",word:"define",kana:`ディ${A}ファイ${_}ン`,pos:"動詞",meaning:"定義する・明確にする",ex:{en:"<u>Define</u> the term clearly.",ja:"その用語を明確に定義せよ。"}},
+  {id:"deliver",level:2,tier:"☆",word:"deliver",kana:`ディ${A}リ${_}ヴァー`,pos:"動詞",meaning:"配達する・出産する・届ける",ex:{en:"She <u>delivered</u> a healthy baby.",ja:"彼女は健康な赤ちゃんを出産した。"},med:"deliver a baby＝出産する、delivery＝分娩。"},
+  {id:"demand",level:2,tier:"・",word:"demand",kana:`ディ${A}マ${_}ンド`,pos:"名・動",meaning:"要求・需要（する）",ex:{en:"There is high <u>demand</u> for the vaccine.",ja:"そのワクチンへの需要が高い。"}},
+  {id:"depend",level:2,tier:"☆",word:"depend",kana:`ディ${A}ペ${_}ンド`,pos:"動詞",meaning:"頼る・次第である",ex:{en:"The dose <u>depends</u> on body weight.",ja:"用量は体重次第だ。"},med:"depend on the dose＝用量に依存する。"},
+  {id:"design",level:2,tier:"☆",word:"design",kana:`ディ${A}ザイ${_}ン`,pos:"名・動",meaning:"設計（する）・デザイン",ex:{en:"The study <u>design</u> was well planned.",ja:"その研究デザインはよく練られていた。"},med:"study design＝研究デザイン。論文頻出。"},
+  {id:"determine",level:2,tier:"☆",word:"determine",kana:`ディ${A}ター${_}ミン`,pos:"動詞",meaning:"決定する・特定する",ex:{en:"Tests will <u>determine</u> the cause.",ja:"検査が原因を特定するだろう。"},med:"determine the cause＝原因を特定する。"},
+  {id:"difficult",level:2,tier:"・",word:"difficult",kana:`${A}ディ${_}フィカルト`,pos:"形容詞",meaning:"難しい・困難な",ex:{en:"It was a <u>difficult</u> case.",ja:"それは難しい症例だった。"}},
+  {id:"discover",level:2,tier:"・",word:"discover",kana:`ディス${A}カ${_}ヴァー`,pos:"動詞",meaning:"発見する",ex:{en:"Scientists <u>discovered</u> a new gene.",ja:"科学者が新しい遺伝子を発見した。"}},
+  {id:"discuss",level:2,tier:"・",word:"discuss",kana:`ディス${A}カ${_}ス`,pos:"動詞",meaning:"議論する・論じる",ex:{en:"We will <u>discuss</u> the results.",ja:"結果について論じます。"}},
+  {id:"divide",level:2,tier:"・",word:"divide",kana:`ディ${A}ヴァイ${_}ド`,pos:"動詞",meaning:"分ける・割る",ex:{en:"Cells <u>divide</u> to grow.",ja:"細胞は分裂して増える。"}},
+  {id:"doubt",level:2,tier:"・",word:"doubt",kana:`${A}ダ${_}ウト`,pos:"名・動",meaning:"疑い・疑う",ex:{en:"There is no <u>doubt</u> about the result.",ja:"その結果に疑いはない。"}},
+  {id:"effort",level:2,tier:"・",word:"effort",kana:`${A}エ${_}フォート`,pos:"名詞",meaning:"努力",ex:{en:"Recovery takes time and <u>effort</u>.",ja:"回復には時間と努力がいる。"}},
+  {id:"encourage",level:2,tier:"☆",word:"encourage",kana:`イン${A}カ${_}レッジ`,pos:"動詞",meaning:"励ます・促す",ex:{en:"Doctors <u>encourage</u> regular exercise.",ja:"医師は定期的な運動を勧める。"},med:"encourage fluid intake＝水分摂取を促す。"},
+  {id:"ensure",level:2,tier:"・",word:"ensure",kana:`イン${A}シュ${_}ア`,pos:"動詞",meaning:"確実にする・保証する",ex:{en:"<u>Ensure</u> the area is clean.",ja:"その部位が清潔であることを確実にせよ。"}},
+  {id:"establish",level:2,tier:"☆",word:"establish",kana:`イス${A}タ${_}ブリッシュ`,pos:"動詞",meaning:"確立する・設立する",ex:{en:"They <u>established</u> a new method.",ja:"彼らは新しい方法を確立した。"},med:"well-established＝確立された（治療法など）。"},
+  {id:"estimate",level:2,tier:"☆",word:"estimate",kana:`${A}エ${_}スティメイト`,pos:"動・名",meaning:"見積もる・推定（する）",ex:{en:"We <u>estimate</u> the risk at 5%.",ja:"リスクを5%と推定する。"},med:"estimated GFR＝推算糸球体濾過量(eGFR)。"},
+  {id:"evidence",level:2,tier:"☆",word:"evidence",kana:`${A}エ${_}ヴィデンス`,pos:"名詞",meaning:"証拠・根拠",ex:{en:"There is strong <u>evidence</u> for this drug.",ja:"この薬には強い根拠がある。"},med:"evidence-based medicine(EBM)＝根拠に基づく医療。"},
+  {id:"examine",level:2,tier:"☆",word:"examine",kana:`イグ${A}ザ${_}ミン`,pos:"動詞",meaning:"調べる・診察する",ex:{en:"The doctor <u>examined</u> the patient.",ja:"医師は患者を診察した。"},med:"physical examination＝身体診察。examine＝診察する。"},
+  {id:"expand",level:2,tier:"・",word:"expand",kana:`イクス${A}パ${_}ンド`,pos:"動詞",meaning:"拡大する・膨らむ",ex:{en:"The lungs <u>expand</u> when you breathe in.",ja:"息を吸うと肺が膨らむ。"}},
+  {id:"explain",level:2,tier:"・",word:"explain",kana:`イクス${A}プレイ${_}ン`,pos:"動詞",meaning:"説明する",ex:{en:"Please <u>explain</u> the risks.",ja:"リスクを説明してください。"}},
+  {id:"explore",level:2,tier:"・",word:"explore",kana:`イクス${A}プロー${_}ア`,pos:"動詞",meaning:"探る・調査する",ex:{en:"Researchers <u>explore</u> the cause.",ja:"研究者が原因を探る。"}},
+
+  /* ---- 基礎（高校・TOEIC）バッチ2 ---- */
+  {id:"express",level:2,tier:"☆",word:"express",kana:`イクス${A}プレ${_}ス`,pos:"動詞",meaning:"表現する・(遺伝子を)発現する",ex:{en:"<u>Express</u> your symptoms clearly.",ja:"症状をはっきり伝えて。"},med:"express a gene＝遺伝子を発現する。expression＝発現。分子病理学で頻出。"},
+  {id:"extend",level:2,tier:"・",word:"extend",kana:`イクス${A}テ${_}ンド`,pos:"動詞",meaning:"延ばす・広げる",ex:{en:"The tumor <u>extends</u> into the muscle.",ja:"腫瘍は筋へ広がっている。"}},
+  {id:"factor",level:2,tier:"☆",word:"factor",kana:`${A}ファ${_}クター`,pos:"名詞",meaning:"要因・因子",ex:{en:"Smoking is a risk <u>factor</u>.",ja:"喫煙は危険因子だ。"},med:"risk factor＝危険因子、growth factor＝成長因子。"},
+  {id:"fail",level:2,tier:"☆",word:"fail",kana:`${A}フェ${_}イル`,pos:"動詞",meaning:"失敗する・(機能)不全になる",ex:{en:"The kidneys began to <u>fail</u>.",ja:"腎臓が機能不全になり始めた。"},med:"heart failure＝心不全、renal failure＝腎不全。"},
+  {id:"familiar",level:2,tier:"・",word:"familiar",kana:`ファ${A}ミ${_}リアー`,pos:"形容詞",meaning:"よく知っている・なじみの",ex:{en:"This is a <u>familiar</u> pattern.",ja:"これはよく見るパターンだ。"}},
+  {id:"feature",level:2,tier:"☆",word:"feature",kana:`${A}フィー${_}チャー`,pos:"名詞",meaning:"特徴",ex:{en:"A key <u>feature</u> of the disease is fever.",ja:"その病気の主な特徴は発熱だ。"},med:"clinical features＝臨床的特徴。"},
+  {id:"figure",level:2,tier:"・",word:"figure",kana:`${A}フィ${_}ギャー`,pos:"名詞",meaning:"数字・図・人物",ex:{en:"See <u>Figure</u> 1 for the data.",ja:"データは図1を参照。"}},
+  {id:"focus",level:2,tier:"・",word:"focus",kana:`${A}フォ${_}ウカス`,pos:"動・名",meaning:"集中する・焦点",ex:{en:"<u>Focus</u> on the main cause.",ja:"主な原因に焦点を当てる。"}},
+  {id:"foreign",level:2,tier:"☆",word:"foreign",kana:`${A}フォ${_}リン`,pos:"形容詞",meaning:"外国の・異物の",ex:{en:"A <u>foreign</u> body was found in the eye.",ja:"目の中に異物が見つかった。"},med:"foreign body＝異物。"},
+  {id:"former",level:2,tier:"・",word:"former",kana:`${A}フォー${_}マー`,pos:"形容詞",meaning:"前の・元の",ex:{en:"The <u>former</u> method was slower.",ja:"以前の方法はより遅かった。"}},
+  {id:"frequent",level:2,tier:"☆",word:"frequent",kana:`${A}フリー${_}クェント`,pos:"形容詞",meaning:"頻繁な",ex:{en:"She has <u>frequent</u> headaches.",ja:"彼女は頻繁に頭痛がある。"},med:"frequency＝頻度・(排尿)頻回。"},
+  {id:"function",level:2,tier:"☆",word:"function",kana:`${A}ファ${_}ンクション`,pos:"名・動",meaning:"機能（する）",ex:{en:"<u>Lung function</u> was tested.",ja:"肺機能が検査された。"},med:"organ function＝臓器機能、liver function tests＝肝機能検査。"},
+  {id:"general",level:2,tier:"☆",word:"general",kana:`${A}ジェ${_}ネラル`,pos:"形容詞",meaning:"全般の・一般の",ex:{en:"The patient is under <u>general</u> anesthesia.",ja:"患者は全身麻酔下にある。"},med:"general anesthesia＝全身麻酔、general condition＝全身状態。"},
+  {id:"generate",level:2,tier:"・",word:"generate",kana:`${A}ジェ${_}ネレイト`,pos:"動詞",meaning:"生み出す・発生させる",ex:{en:"Cells <u>generate</u> energy.",ja:"細胞はエネルギーを生み出す。"}},
+  {id:"identify",level:2,tier:"☆",word:"identify",kana:`アイ${A}デ${_}ンティファイ`,pos:"動詞",meaning:"特定する・見分ける",ex:{en:"They <u>identified</u> the bacteria.",ja:"彼らはその細菌を特定した。"},med:"identify the pathogen＝病原体を同定する。"},
+  {id:"ignore",level:2,tier:"☆",word:"ignore",kana:`イグ${A}ノー${_}ア`,pos:"動詞",meaning:"無視する",ex:{en:"Do not <u>ignore</u> warning signs.",ja:"警告サインを無視しないで。"},med:"ignore symptoms＝症状を見過ごす。"},
+  {id:"image",level:2,tier:"☆",word:"image",kana:`${A}イ${_}メッジ`,pos:"名詞",meaning:"画像・像",ex:{en:"The MRI <u>image</u> showed a mass.",ja:"MRI画像は腫瘤を示した。"},med:"imaging＝画像診断（CT/MRI等）。"},
+  {id:"imagine",level:2,tier:"・",word:"imagine",kana:`イ${A}マ${_}ジン`,pos:"動詞",meaning:"想像する",ex:{en:"<u>Imagine</u> the possible outcomes.",ja:"考えうる結果を想像して。"}},
+  {id:"impact",level:2,tier:"☆",word:"impact",kana:`${A}イ${_}ンパクト`,pos:"名詞",meaning:"影響・衝撃",ex:{en:"The disease has a big <u>impact</u> on daily life.",ja:"その病気は日常生活に大きく影響する。"},med:"impact on quality of life＝QOLへの影響。"},
+  {id:"indicate",level:2,tier:"☆",word:"indicate",kana:`${A}イ${_}ンディケイト`,pos:"動詞",meaning:"示す・適応がある",ex:{en:"The results <u>indicate</u> improvement.",ja:"結果は改善を示す。"},med:"indication＝適応、contraindication＝禁忌。"},
+  {id:"individual",level:2,tier:"☆",word:"individual",kana:`インディ${A}ヴィ${_}ジュアル`,pos:"形・名",meaning:"個々の・個人",ex:{en:"Each <u>individual</u> reacts differently.",ja:"各個人で反応は異なる。"},med:"individualized treatment＝個別化治療。"},
+  {id:"industry",level:2,tier:"・",word:"industry",kana:`${A}イ${_}ンダストリー`,pos:"名詞",meaning:"産業・業界",ex:{en:"The pharmaceutical <u>industry</u> is huge.",ja:"製薬業界は巨大だ。"}},
+  {id:"influence",level:2,tier:"☆",word:"influence",kana:`${A}イ${_}ンフルエンス`,pos:"名・動",meaning:"影響（する）",ex:{en:"Diet can <u>influence</u> blood pressure.",ja:"食事は血圧に影響しうる。"},med:"genetic influence＝遺伝的影響。"},
+  {id:"inform",level:2,tier:"☆",word:"inform",kana:`イン${A}フォー${_}ム`,pos:"動詞",meaning:"知らせる",ex:{en:"<u>Inform</u> the patient of the risks.",ja:"患者にリスクを知らせる。"},med:"informed consent＝説明と同意（インフォームドコンセント）。"},
+  {id:"injure",level:2,tier:"☆",word:"injure",kana:`${A}イ${_}ンジャー`,pos:"動詞",meaning:"傷つける・けがをさせる",ex:{en:"He <u>injured</u> his knee while running.",ja:"彼は走っていて膝をけがした。"},med:"injury＝外傷、head injury＝頭部外傷。"},
+  {id:"instead",level:2,tier:"・",word:"instead",kana:`インス${A}テ${_}ッド`,pos:"副詞",meaning:"代わりに",ex:{en:"Use water <u>instead</u> of soap.",ja:"石けんの代わりに水を使って。"}},
+  {id:"intend",level:2,tier:"・",word:"intend",kana:`イン${A}テ${_}ンド`,pos:"動詞",meaning:"意図する・つもりだ",ex:{en:"We <u>intend</u> to repeat the test.",ja:"検査を繰り返すつもりだ。"}},
+  {id:"involve",level:2,tier:"☆",word:"involve",kana:`イン${A}ヴォ${_}ルヴ`,pos:"動詞",meaning:"含む・関与する・巻き込む",ex:{en:"The process <u>involves</u> several enzymes.",ja:"その過程は複数の酵素が関与する。"},med:"lymph nodes are involved＝リンパ節に浸潤がある。"},
+  {id:"issue",level:2,tier:"・",word:"issue",kana:`${A}イ${_}シュー`,pos:"名詞",meaning:"問題・(雑誌の)号",ex:{en:"Safety is a key <u>issue</u>.",ja:"安全性が重要な問題だ。"}},
+  {id:"judge",level:2,tier:"・",word:"judge",kana:`${A}ジャ${_}ッジ`,pos:"動・名",meaning:"判断する・裁判官",ex:{en:"Doctors <u>judge</u> the severity.",ja:"医師は重症度を判断する。"}},
+  {id:"knowledge",level:2,tier:"・",word:"knowledge",kana:`${A}ナ${_}レッジ`,pos:"名詞",meaning:"知識",ex:{en:"Medical <u>knowledge</u> keeps growing.",ja:"医学知識は増え続ける。"}},
+  {id:"lack",level:2,tier:"☆",word:"lack",kana:`${A}ラ${_}ック`,pos:"名・動",meaning:"欠乏・欠く",ex:{en:"A <u>lack</u> of sleep harms health.",ja:"睡眠不足は健康を害する。"},med:"lack of oxygen＝酸素欠乏（低酸素）。"},
+  {id:"layer",level:2,tier:"☆",word:"layer",kana:`${A}レ${_}イヤー`,pos:"名詞",meaning:"層",ex:{en:"The skin has several <u>layers</u>.",ja:"皮膚は複数の層から成る。"},med:"epithelial layer＝上皮層。"},
+  {id:"limit",level:2,tier:"☆",word:"limit",kana:`${A}リ${_}ミット`,pos:"名・動",meaning:"限界・制限する",ex:{en:"<u>Limit</u> your salt intake.",ja:"塩分摂取を制限して。"},med:"within normal limits＝正常範囲内(WNL)。"},
+  {id:"locate",level:2,tier:"☆",word:"locate",kana:`ロ${A}ウ${_}ケイト`,pos:"動詞",meaning:"位置を突き止める",ex:{en:"The scan helped <u>locate</u> the tumor.",ja:"スキャンは腫瘍の位置特定に役立った。"},med:"location＝部位。location of the lesion＝病変の部位。"},
+  {id:"maintain",level:2,tier:"☆",word:"maintain",kana:`メイン${A}テ${_}イン`,pos:"動詞",meaning:"維持する・主張する",ex:{en:"<u>Maintain</u> normal blood pressure.",ja:"正常な血圧を維持する。"},med:"maintenance therapy＝維持療法。"},
+  {id:"major",level:2,tier:"☆",word:"major",kana:`${A}メ${_}イジャー`,pos:"形容詞",meaning:"主要な・大きな",ex:{en:"A <u>major</u> artery was blocked.",ja:"主要な動脈が詰まった。"},med:"major surgery＝大手術。"},
+  {id:"manner",level:2,tier:"・",word:"manner",kana:`${A}マ${_}ナー`,pos:"名詞",meaning:"方法・態度",ex:{en:"Handle it in a safe <u>manner</u>.",ja:"安全なやり方で扱って。"}},
+  {id:"material",level:2,tier:"☆",word:"material",kana:`マ${A}ティ${_}リアル`,pos:"名詞",meaning:"材料・物質",ex:{en:"DNA is the genetic <u>material</u>.",ja:"DNAは遺伝物質だ。"},med:"genetic material＝遺伝物質。"},
+  {id:"matter",level:2,tier:"・",word:"matter",kana:`${A}マ${_}ター`,pos:"名・動",meaning:"問題・重要である・物質",ex:{en:"Early care really <u>matters</u>.",ja:"早期のケアは本当に重要だ。"}},
+  {id:"measure",level:2,tier:"☆",word:"measure",kana:`${A}メ${_}ジャー`,pos:"動・名",meaning:"測る・対策",ex:{en:"<u>Measure</u> the temperature hourly.",ja:"1時間ごとに体温を測って。"},med:"preventive measures＝予防策、outcome measure＝評価指標。"},
+  {id:"mention",level:2,tier:"・",word:"mention",kana:`${A}メ${_}ンション`,pos:"動詞",meaning:"言及する・述べる",ex:{en:"As <u>mentioned</u> above, rest is key.",ja:"上で述べた通り、休養が鍵だ。"}},
+  {id:"method",level:2,tier:"・",word:"method",kana:`${A}メ${_}ソッド`,pos:"名詞",meaning:"方法・方式",ex:{en:"A new <u>method</u> was introduced.",ja:"新しい方法が導入された。"}},
+  {id:"modern",level:2,tier:"・",word:"modern",kana:`${A}モ${_}ダン`,pos:"形容詞",meaning:"現代の・最新の",ex:{en:"<u>Modern</u> medicine saves lives.",ja:"現代医学は命を救う。"}},
+  {id:"moment",level:2,tier:"・",word:"moment",kana:`${A}モ${_}ウメント`,pos:"名詞",meaning:"瞬間・今",ex:{en:"At the <u>moment</u>, she is stable.",ja:"今のところ、彼女は安定している。"}},
+  {id:"monitor",level:2,tier:"☆",word:"monitor",kana:`${A}モ${_}ニター`,pos:"動・名",meaning:"監視する・観察する",ex:{en:"Nurses <u>monitor</u> the heart rate.",ja:"看護師が心拍を監視する。"},med:"monitor vital signs＝バイタルを監視する。"},
+  {id:"narrow",level:2,tier:"☆",word:"narrow",kana:`${A}ナ${_}ロウ`,pos:"形容詞",meaning:"狭い",ex:{en:"The artery became <u>narrow</u>.",ja:"その動脈は狭くなった。"},med:"narrowing＝狭窄(きょうさく)。"},
+  {id:"native",level:2,tier:"・",word:"native",kana:`${A}ネ${_}イティブ`,pos:"形容詞",meaning:"母国の・生来の",ex:{en:"English is not her <u>native</u> language.",ja:"英語は彼女の母語ではない。"}},
+  {id:"nature",level:2,tier:"・",word:"nature",kana:`${A}ネ${_}イチャー`,pos:"名詞",meaning:"自然・性質",ex:{en:"We studied the <u>nature</u> of the disease.",ja:"その病気の性質を研究した。"}},
+  {id:"negative",level:2,tier:"☆",word:"negative",kana:`${A}ネ${_}ガティブ`,pos:"形容詞",meaning:"否定的な・陰性の",ex:{en:"The test came back <u>negative</u>.",ja:"検査は陰性だった。"},med:"negative＝陰性（↔positive 陽性）。"},
+  {id:"normal",level:2,tier:"☆",word:"normal",kana:`${A}ノー${_}マル`,pos:"形容詞",meaning:"正常な・普通の",ex:{en:"Her temperature is <u>normal</u>.",ja:"彼女の体温は正常だ。"},med:"normal range＝正常範囲、within normal limits＝正常範囲内。"},
+  {id:"notice",level:2,tier:"☆",word:"notice",kana:`${A}ノ${_}ウティス`,pos:"動・名",meaning:"気づく・通知",ex:{en:"Did you <u>notice</u> any change?",ja:"何か変化に気づきましたか？"},med:"病歴聴取で『変化に気づいたか』を尋ねる頻出語。"},
+  {id:"obtain",level:2,tier:"☆",word:"obtain",kana:`オブ${A}テ${_}イン`,pos:"動詞",meaning:"得る・入手する",ex:{en:"We <u>obtained</u> informed consent.",ja:"説明と同意を得た。"},med:"obtain consent／a sample＝同意・検体を得る。"},
+  {id:"obvious",level:2,tier:"・",word:"obvious",kana:`${A}オ${_}ブヴィアス`,pos:"形容詞",meaning:"明らかな",ex:{en:"There was no <u>obvious</u> cause.",ja:"明らかな原因はなかった。"}},
+  {id:"occur",level:2,tier:"☆",word:"occur",kana:`オ${A}カー${_}`,pos:"動詞",meaning:"起こる・生じる",ex:{en:"Side effects rarely <u>occur</u>.",ja:"副作用はまれにしか起こらない。"},med:"adverse events occur＝有害事象が生じる。"},
+  {id:"offer",level:2,tier:"・",word:"offer",kana:`${A}オ${_}ファー`,pos:"動・名",meaning:"提供する・申し出る",ex:{en:"They <u>offered</u> a new treatment.",ja:"彼らは新しい治療を提供した。"}},
+  {id:"operate",level:2,tier:"☆",word:"operate",kana:`${A}オ${_}ペレイト`,pos:"動詞",meaning:"操作する・手術する",ex:{en:"Surgeons <u>operated</u> on the patient.",ja:"外科医が患者を手術した。"},med:"operation＝手術、operating room＝手術室。"},
+  {id:"opinion",level:2,tier:"☆",word:"opinion",kana:`オ${A}ピ${_}ニオン`,pos:"名詞",meaning:"意見・見解",ex:{en:"She got a second <u>opinion</u>.",ja:"彼女はセカンドオピニオンを得た。"},med:"second opinion＝セカンドオピニオン。"},
+  {id:"oppose",level:2,tier:"・",word:"oppose",kana:`オ${A}ポ${_}ウズ`,pos:"動詞",meaning:"反対する",ex:{en:"Some doctors <u>opposed</u> the plan.",ja:"一部の医師は計画に反対した。"}},
+  {id:"option",level:2,tier:"☆",word:"option",kana:`${A}オ${_}プション`,pos:"名詞",meaning:"選択肢",ex:{en:"Surgery is one treatment <u>option</u>.",ja:"手術は治療選択肢の一つだ。"},med:"treatment options＝治療選択肢。"},
+  {id:"ordinary",level:2,tier:"・",word:"ordinary",kana:`${A}オー${_}ディナリー`,pos:"形容詞",meaning:"普通の・通常の",ex:{en:"It started as an <u>ordinary</u> cold.",ja:"普通の風邪として始まった。"}},
+  {id:"organize",level:2,tier:"・",word:"organize",kana:`${A}オー${_}ガナイズ`,pos:"動詞",meaning:"組織する・整理する",ex:{en:"<u>Organize</u> the data before analysis.",ja:"分析の前にデータを整理して。"}},
+  {id:"origin",level:2,tier:"☆",word:"origin",kana:`${A}オ${_}リジン`,pos:"名詞",meaning:"起源・由来",ex:{en:"The <u>origin</u> of the pain is unclear.",ja:"痛みの原因(由来)は不明だ。"},med:"of unknown origin＝原因不明の（例: fever of unknown origin 不明熱）。"},
+  {id:"particular",level:2,tier:"・",word:"particular",kana:`パ${A}ティ${_}キュラー`,pos:"形容詞",meaning:"特定の・特別の",ex:{en:"Is there a <u>particular</u> symptom?",ja:"特定の症状はありますか？"}},
+  {id:"pattern",level:2,tier:"☆",word:"pattern",kana:`${A}パ${_}ターン`,pos:"名詞",meaning:"型・様式",ex:{en:"An abnormal breathing <u>pattern</u> appeared.",ja:"異常な呼吸パターンが現れた。"},med:"breathing pattern＝呼吸様式。"},
+  {id:"perform",level:2,tier:"☆",word:"perform",kana:`パ${A}フォー${_}ム`,pos:"動詞",meaning:"行う・遂行する",ex:{en:"They <u>performed</u> the surgery safely.",ja:"彼らは手術を安全に行った。"},med:"perform a procedure＝処置を行う。"},
+  {id:"perhaps",level:2,tier:"・",word:"perhaps",kana:`パ${A}ハ${_}プス`,pos:"副詞",meaning:"たぶん・おそらく",ex:{en:"<u>Perhaps</u> the cause is viral.",ja:"おそらく原因はウイルス性だ。"}},
+  {id:"period",level:2,tier:"☆",word:"period",kana:`${A}ピ${_}アリオド`,pos:"名詞",meaning:"期間・時期",ex:{en:"The incubation <u>period</u> is two weeks.",ja:"潜伏期間は2週間だ。"},med:"incubation period＝潜伏期間。"},
+  {id:"permanent",level:2,tier:"☆",word:"permanent",kana:`${A}パー${_}マネント`,pos:"形容詞",meaning:"永久の・永続的な",ex:{en:"The damage may be <u>permanent</u>.",ja:"その損傷は永続的かもしれない。"},med:"permanent damage＝不可逆的な損傷。"},
+  {id:"phenomenon",level:2,tier:"・",word:"phenomenon",kana:`フィ${A}ノ${_}メノン`,pos:"名詞",meaning:"現象",ex:{en:"This is a rare <u>phenomenon</u>.",ja:"これはまれな現象だ。"}},
+  {id:"policy",level:2,tier:"・",word:"policy",kana:`${A}ポ${_}リシー`,pos:"名詞",meaning:"方針・政策",ex:{en:"It is the hospital's <u>policy</u>.",ja:"それは病院の方針だ。"}},
+  {id:"popular",level:2,tier:"・",word:"popular",kana:`${A}ポ${_}ピュラー`,pos:"形容詞",meaning:"人気の・普及した",ex:{en:"This method is <u>popular</u> worldwide.",ja:"この方法は世界中で普及している。"}},
+  {id:"positive",level:2,tier:"☆",word:"positive",kana:`${A}ポ${_}ジティブ`,pos:"形容詞",meaning:"肯定的な・陽性の",ex:{en:"The test was <u>positive</u>.",ja:"検査は陽性だった。"},med:"positive＝陽性（↔negative 陰性）。false positive＝偽陽性。"},
+  {id:"potential",level:2,tier:"☆",word:"potential",kana:`ポ${A}テ${_}ンシャル`,pos:"形・名",meaning:"潜在的な・可能性",ex:{en:"There is a <u>potential</u> risk of bleeding.",ja:"出血の潜在的リスクがある。"},med:"potential side effects＝起こりうる副作用。"},
+  {id:"practice",level:2,tier:"☆",word:"practice",kana:`${A}プラ${_}クティス`,pos:"名・動",meaning:"練習・診療・実践",ex:{en:"This is common in clinical <u>practice</u>.",ja:"これは臨床現場でよくある。"},med:"clinical practice＝臨床（診療）、general practice＝一般診療。"},
+  {id:"predict",level:2,tier:"☆",word:"predict",kana:`プリ${A}ディ${_}クト`,pos:"動詞",meaning:"予測する",ex:{en:"This marker <u>predicts</u> the outcome.",ja:"このマーカーは予後を予測する。"},med:"predictor＝予測因子、prognosis＝予後。"},
+  {id:"prepare",level:2,tier:"・",word:"prepare",kana:`プリ${A}ペ${_}ア`,pos:"動詞",meaning:"準備する",ex:{en:"<u>Prepare</u> the patient for surgery.",ja:"手術に向けて患者を準備する。"}},
+  {id:"prevent",level:2,tier:"☆",word:"prevent",kana:`プリ${A}ヴェ${_}ント`,pos:"動詞",meaning:"防ぐ・予防する",ex:{en:"Vaccines <u>prevent</u> infection.",ja:"ワクチンは感染を防ぐ。"},med:"prevention＝予防、preventive medicine＝予防医学。"},
+  {id:"previous",level:2,tier:"☆",word:"previous",kana:`${A}プ${_}リーヴィアス`,pos:"形容詞",meaning:"前の・以前の",ex:{en:"He had no <u>previous</u> illness.",ja:"彼に既往歴はなかった。"},med:"previous history＝既往歴。"},
+  {id:"primary",level:2,tier:"☆",word:"primary",kana:`${A}プ${_}ライマリー`,pos:"形容詞",meaning:"主要な・一次の・原発の",ex:{en:"<u>Primary</u> care is the first contact.",ja:"プライマリケアは最初の窓口だ。"},med:"primary care＝一次医療、primary tumor＝原発腫瘍。"},
+  {id:"principle",level:2,tier:"・",word:"principle",kana:`${A}プ${_}リンシプル`,pos:"名詞",meaning:"原則・原理",ex:{en:"Follow the basic <u>principle</u>.",ja:"基本原則に従って。"}},
+  {id:"process",level:2,tier:"☆",word:"process",kana:`${A}プ${_}ロセス`,pos:"名詞",meaning:"過程・工程",ex:{en:"The healing <u>process</u> takes weeks.",ja:"治癒の過程は数週間かかる。"},med:"disease process＝病態の過程。"},
+  {id:"progress",level:2,tier:"☆",word:"progress",kana:`${A}プ${_}ログレス / プロ${A}グレ${_}ス`,pos:"名・動",meaning:"進歩・進行（する）",ex:{en:"The disease <u>progressed</u> slowly.",ja:"その病気はゆっくり進行した。"},med:"disease progression＝病勢の進行。"},
+  {id:"promote",level:2,tier:"☆",word:"promote",kana:`プロ${A}モ${_}ウト`,pos:"動詞",meaning:"促進する・促す",ex:{en:"Rest <u>promotes</u> healing.",ja:"休養は治癒を促進する。"},med:"promote wound healing＝創傷治癒を促す。"},
+  {id:"proper",level:2,tier:"☆",word:"proper",kana:`${A}プ${_}ロパー`,pos:"形容詞",meaning:"適切な・正しい",ex:{en:"<u>Proper</u> care prevents complications.",ja:"適切なケアは合併症を防ぐ。"},med:"proper dosage＝適切な用量。"},
+  {id:"propose",level:2,tier:"・",word:"propose",kana:`プロ${A}ポ${_}ウズ`,pos:"動詞",meaning:"提案する",ex:{en:"They <u>proposed</u> a new mechanism.",ja:"彼らは新しい機序を提案した。"}},
+  {id:"protect",level:2,tier:"☆",word:"protect",kana:`プロ${A}テ${_}クト`,pos:"動詞",meaning:"守る・保護する",ex:{en:"Masks <u>protect</u> against infection.",ja:"マスクは感染から守る。"},med:"protective equipment＝防護具(PPE)。"},
+  {id:"prove",level:2,tier:"・",word:"prove",kana:`${A}プ${_}ルーヴ`,pos:"動詞",meaning:"証明する・判明する",ex:{en:"The treatment <u>proved</u> effective.",ja:"その治療は有効だと判明した。"}},
+  {id:"provide",level:2,tier:"☆",word:"provide",kana:`プロ${A}ヴァ${_}イド`,pos:"動詞",meaning:"提供する・供給する",ex:{en:"Nurses <u>provide</u> daily care.",ja:"看護師が日々のケアを提供する。"},med:"provide care／treatment＝ケア・治療を提供する。"},
+  {id:"purpose",level:2,tier:"・",word:"purpose",kana:`${A}パー${_}パス`,pos:"名詞",meaning:"目的",ex:{en:"The <u>purpose</u> of the study is clear.",ja:"その研究の目的は明確だ。"}},
+  {id:"quality",level:2,tier:"☆",word:"quality",kana:`${A}クォ${_}リティ`,pos:"名詞",meaning:"質・品質",ex:{en:"Treatment improves <u>quality</u> of life.",ja:"治療は生活の質を高める。"},med:"quality of life(QOL)＝生活の質。"},
+  {id:"range",level:2,tier:"☆",word:"range",kana:`${A}レ${_}インジ`,pos:"名詞",meaning:"範囲・幅",ex:{en:"The value is in the normal <u>range</u>.",ja:"値は正常範囲内だ。"},med:"reference range＝基準範囲。"},
+  {id:"rare",level:2,tier:"☆",word:"rare",kana:`${A}レ${_}ア`,pos:"形容詞",meaning:"まれな・珍しい",ex:{en:"It is a <u>rare</u> genetic disease.",ja:"それはまれな遺伝病だ。"},med:"rare disease＝希少疾患。"},
+  {id:"reach",level:2,tier:"☆",word:"reach",kana:`${A}リー${_}チ`,pos:"動詞",meaning:"達する・届く",ex:{en:"They <u>reached</u> a diagnosis quickly.",ja:"彼らは素早く診断に至った。"},med:"reach a diagnosis＝診断に至る。"},
+  {id:"realize",level:2,tier:"・",word:"realize",kana:`${A}リ${_}アライズ`,pos:"動詞",meaning:"気づく・実現する",ex:{en:"He didn't <u>realize</u> he was ill.",ja:"彼は自分が病気だと気づかなかった。"}},
+  {id:"receive",level:2,tier:"☆",word:"receive",kana:`リ${A}シー${_}ヴ`,pos:"動詞",meaning:"受け取る・受ける",ex:{en:"She <u>received</u> the treatment last week.",ja:"彼女は先週その治療を受けた。"},med:"receive a transplant＝移植を受ける。"},
+  {id:"recent",level:2,tier:"・",word:"recent",kana:`${A}リー${_}スント`,pos:"形容詞",meaning:"最近の",ex:{en:"A <u>recent</u> study confirmed it.",ja:"最近の研究がそれを裏づけた。"}},
+  {id:"recognize",level:2,tier:"☆",word:"recognize",kana:`${A}レ${_}コグナイズ`,pos:"動詞",meaning:"認識する・見分ける",ex:{en:"Learn to <u>recognize</u> the symptoms.",ja:"症状を見分けられるようになろう。"},med:"recognize warning signs＝危険徴候を見分ける。"},
+  {id:"recommend",level:2,tier:"☆",word:"recommend",kana:`レコ${A}メ${_}ンド`,pos:"動詞",meaning:"勧める・推奨する",ex:{en:"Doctors <u>recommend</u> rest and fluids.",ja:"医師は休養と水分を勧める。"},med:"recommended dose＝推奨用量、guidelines recommend＝ガイドラインが推奨。"},
+  {id:"recover",level:2,tier:"☆",word:"recover",kana:`リ${A}カ${_}ヴァー`,pos:"動詞",meaning:"回復する・取り戻す",ex:{en:"He <u>recovered</u> after surgery.",ja:"彼は手術後に回復した。"},med:"recovery＝回復、recovery room＝回復室。"},
+  {id:"reflect",level:2,tier:"・",word:"reflect",kana:`リ${A}フレ${_}クト`,pos:"動詞",meaning:"反映する・反射する",ex:{en:"The result <u>reflects</u> the dose.",ja:"その結果は用量を反映している。"}},
+
+  /* ---- 基礎（高校・TOEIC）バッチ3 ---- */
+  {id:"regard",level:2,tier:"・",word:"regard",kana:`リ${A}ガー${_}ド`,pos:"動詞",meaning:"みなす・~に関して",ex:{en:"This is <u>regarded</u> as safe.",ja:"これは安全とみなされている。"}},
+  {id:"region",level:2,tier:"☆",word:"region",kana:`${A}リー${_}ジョン`,pos:"名詞",meaning:"地域・部位",ex:{en:"Pain spread to the chest <u>region</u>.",ja:"痛みが胸部に広がった。"},med:"anatomical region＝解剖学的部位。"},
+  {id:"regular",level:2,tier:"☆",word:"regular",kana:`${A}レ${_}ギュラー`,pos:"形容詞",meaning:"規則的な・定期的な",ex:{en:"His pulse is <u>regular</u>.",ja:"彼の脈は規則的だ。"},med:"regular pulse＝整脈、regular checkup＝定期検診。"},
+  {id:"relate",level:2,tier:"・",word:"relate",kana:`リ${A}レ${_}イト`,pos:"動詞",meaning:"関連づける・関係がある",ex:{en:"The symptoms <u>relate</u> to stress.",ja:"その症状はストレスに関係する。"}},
+  {id:"release",level:2,tier:"☆",word:"release",kana:`リ${A}リー${_}ス`,pos:"動・名",meaning:"放出する・解放（する）",ex:{en:"The gland <u>releases</u> hormones.",ja:"その腺はホルモンを放出する。"},med:"release of histamine＝ヒスタミン放出。"},
+  {id:"relevant",level:2,tier:"☆",word:"relevant",kana:`${A}レ${_}レヴァント`,pos:"形容詞",meaning:"関連した・適切な",ex:{en:"Only <u>relevant</u> data were used.",ja:"関連するデータのみ使われた。"},med:"clinically relevant＝臨床的に重要な。"},
+  {id:"rely",level:2,tier:"・",word:"rely",kana:`リ${A}ラ${_}イ`,pos:"動詞",meaning:"頼る・依存する",ex:{en:"We <u>rely</u> on lab tests.",ja:"私たちは検査に頼る。"}},
+  {id:"remain",level:2,tier:"☆",word:"remain",kana:`リ${A}メ${_}イン`,pos:"動詞",meaning:"~のままである・残る",ex:{en:"The symptoms <u>remained</u> for a week.",ja:"症状は1週間続いた。"},med:"remain stable＝安定したままである。"},
+  {id:"remind",level:2,tier:"・",word:"remind",kana:`リ${A}マ${_}インド`,pos:"動詞",meaning:"思い出させる",ex:{en:"<u>Remind</u> the patient to take the pill.",ja:"患者に服薬を思い出させて。"}},
+  {id:"remove",level:2,tier:"☆",word:"remove",kana:`リ${A}ムー${_}ヴ`,pos:"動詞",meaning:"取り除く・切除する",ex:{en:"The surgeon <u>removed</u> the tumor.",ja:"外科医は腫瘍を切除した。"},med:"remove a tumor／organ＝腫瘍・臓器を摘出する。"},
+  {id:"repair",level:2,tier:"☆",word:"repair",kana:`リ${A}ペ${_}ア`,pos:"動・名",meaning:"修復する・修理",ex:{en:"The body <u>repairs</u> damaged tissue.",ja:"体は傷ついた組織を修復する。"},med:"DNA repair＝DNA修復、tissue repair＝組織修復。"},
+  {id:"replace",level:2,tier:"☆",word:"replace",kana:`リプ${A}レ${_}イス`,pos:"動詞",meaning:"取り替える・置換する",ex:{en:"The hip joint was <u>replaced</u>.",ja:"股関節が置換された。"},med:"joint replacement＝関節置換、fluid replacement＝輸液。"},
+  {id:"represent",level:2,tier:"・",word:"represent",kana:`レプリ${A}ゼ${_}ント`,pos:"動詞",meaning:"表す・代表する",ex:{en:"Each dot <u>represents</u> one patient.",ja:"各点は1人の患者を表す。"}},
+  {id:"request",level:2,tier:"・",word:"request",kana:`リ${A}クェ${_}スト`,pos:"名・動",meaning:"依頼（する）・要請",ex:{en:"The doctor <u>requested</u> a blood test.",ja:"医師は血液検査を依頼した。"}},
+  {id:"research",level:2,tier:"☆",word:"research",kana:`リ${A}サー${_}チ`,pos:"名・動",meaning:"研究（する）",ex:{en:"More <u>research</u> is needed.",ja:"さらなる研究が必要だ。"},med:"clinical research＝臨床研究。"},
+  {id:"resource",level:2,tier:"・",word:"resource",kana:`${A}リー${_}ソース`,pos:"名詞",meaning:"資源・財源",ex:{en:"Medical <u>resources</u> are limited.",ja:"医療資源は限られている。"}},
+  {id:"respond",level:2,tier:"☆",word:"respond",kana:`リス${A}ポ${_}ンド`,pos:"動詞",meaning:"反応する・応じる",ex:{en:"The tumor <u>responded</u> to the drug.",ja:"腫瘍はその薬に反応した。"},med:"respond to treatment＝治療に反応する、response rate＝奏効率。"},
+  {id:"responsible",level:2,tier:"☆",word:"responsible",kana:`リス${A}ポ${_}ンシブル`,pos:"形容詞",meaning:"責任がある・原因の",ex:{en:"This gene is <u>responsible</u> for the disease.",ja:"この遺伝子がその病気の原因だ。"},med:"the responsible pathogen＝起因菌。"},
+  {id:"reveal",level:2,tier:"☆",word:"reveal",kana:`リ${A}ヴィー${_}ル`,pos:"動詞",meaning:"明らかにする・(検査で)示す",ex:{en:"The CT scan <u>revealed</u> a mass.",ja:"CTで腫瘤が判明した。"},med:"the scan revealed＝画像で~が明らかになった。"},
+  {id:"role",level:2,tier:"☆",word:"role",kana:`${A}ロ${_}ウル`,pos:"名詞",meaning:"役割",ex:{en:"This protein plays a key <u>role</u>.",ja:"このタンパク質は重要な役割を果たす。"},med:"play a role in＝~に役割を果たす。"},
+  {id:"route",level:2,tier:"☆",word:"route",kana:`${A}ル${_}ート`,pos:"名詞",meaning:"経路・道",ex:{en:"The oral <u>route</u> is preferred.",ja:"経口投与が好ましい。"},med:"route of administration＝投与経路。"},
+  {id:"routine",level:2,tier:"☆",word:"routine",kana:`ルー${A}ティー${_}ン`,pos:"名・形",meaning:"日課・通常の",ex:{en:"It was found on a <u>routine</u> checkup.",ja:"定期健診で見つかった。"},med:"routine blood test＝ルーチン血液検査。"},
+  {id:"satisfy",level:2,tier:"・",word:"satisfy",kana:`${A}サ${_}ティスファイ`,pos:"動詞",meaning:"満たす・満足させる",ex:{en:"The result did not <u>satisfy</u> the criteria.",ja:"結果は基準を満たさなかった。"}},
+  {id:"scale",level:2,tier:"☆",word:"scale",kana:`ス${A}ケ${_}イル`,pos:"名詞",meaning:"規模・尺度・目盛り",ex:{en:"Rate the pain on a <u>scale</u> of 1 to 10.",ja:"痛みを1〜10で評価して。"},med:"pain scale＝疼痛スケール。"},
+  {id:"scene",level:2,tier:"・",word:"scene",kana:`${A}シー${_}ン`,pos:"名詞",meaning:"場面・現場",ex:{en:"Paramedics arrived at the <u>scene</u>.",ja:"救急隊が現場に到着した。"}},
+  {id:"search",level:2,tier:"・",word:"search",kana:`${A}サー${_}チ`,pos:"動・名",meaning:"探す・検索",ex:{en:"They <u>searched</u> for the cause.",ja:"彼らは原因を探した。"}},
+  {id:"section",level:2,tier:"☆",word:"section",kana:`${A}セ${_}クション`,pos:"名詞",meaning:"部分・区分・切片",ex:{en:"A tissue <u>section</u> was examined.",ja:"組織切片が調べられた。"},med:"tissue section＝組織切片、cesarean section＝帝王切開。"},
+  {id:"secure",level:2,tier:"・",word:"secure",kana:`シ${A}キュ${_}ア`,pos:"形・動",meaning:"安全な・確保する",ex:{en:"Make sure the airway is <u>secure</u>.",ja:"気道が確保されているか確認して。"}},
+  {id:"seek",level:2,tier:"☆",word:"seek",kana:`${A}シー${_}ク`,pos:"動詞",meaning:"求める・探し求める",ex:{en:"<u>Seek</u> medical help immediately.",ja:"すぐに医療の助けを求めて。"},med:"seek medical attention＝受診する。"},
+  {id:"select",level:2,tier:"・",word:"select",kana:`シ${A}レ${_}クト`,pos:"動詞",meaning:"選ぶ・選択する",ex:{en:"<u>Select</u> the best option.",ja:"最良の選択肢を選んで。"}},
+  {id:"sense",level:2,tier:"☆",word:"sense",kana:`${A}セ${_}ンス`,pos:"名詞",meaning:"感覚・意味",ex:{en:"She lost her <u>sense</u> of smell.",ja:"彼女は嗅覚を失った。"},med:"sense of smell＝嗅覚、loss of sensation＝感覚消失。"},
+  {id:"separate",level:2,tier:"・",word:"separate",kana:`${A}セ${_}パレイト`,pos:"動・形",meaning:"分ける・別々の",ex:{en:"<u>Separate</u> the samples carefully.",ja:"検体を注意深く分けて。"}},
+  {id:"series",level:2,tier:"☆",word:"series",kana:`${A}シ${_}アリーズ`,pos:"名詞",meaning:"連続・一連",ex:{en:"A <u>series</u> of tests was done.",ja:"一連の検査が行われた。"},med:"case series＝症例集積（研究)。"},
+  {id:"serious",level:2,tier:"☆",word:"serious",kana:`${A}シ${_}アリアス`,pos:"形容詞",meaning:"深刻な・重い",ex:{en:"It could be a <u>serious</u> condition.",ja:"重い病態かもしれない。"},med:"serious adverse event＝重篤な有害事象。"},
+  {id:"service",level:2,tier:"・",word:"service",kana:`${A}サー${_}ヴィス`,pos:"名詞",meaning:"業務・サービス",ex:{en:"Emergency <u>services</u> were called.",ja:"救急サービスが呼ばれた。"}},
+  {id:"settle",level:2,tier:"・",word:"settle",kana:`${A}セ${_}トゥル`,pos:"動詞",meaning:"解決する・落ち着く",ex:{en:"The pain finally <u>settled</u>.",ja:"痛みはようやく落ち着いた。"}},
+  {id:"several",level:2,tier:"・",word:"several",kana:`${A}セ${_}ヴラル`,pos:"形容詞",meaning:"いくつかの",ex:{en:"<u>Several</u> patients reported the same.",ja:"何人かの患者が同じことを訴えた。"}},
+  {id:"severe",level:2,tier:"☆",word:"severe",kana:`シ${A}ヴィ${_}ア`,pos:"形容詞",meaning:"厳しい・重症の",ex:{en:"She had <u>severe</u> chest pain.",ja:"彼女は激しい胸痛があった。"},med:"severe＝重症（mild/moderate/severe 軽症・中等症・重症）。"},
+  {id:"shape",level:2,tier:"・",word:"shape",kana:`${A}シェ${_}イプ`,pos:"名詞",meaning:"形・形状",ex:{en:"The cells have an unusual <u>shape</u>.",ja:"その細胞は異常な形をしている。"}},
+  {id:"share",level:2,tier:"・",word:"share",kana:`${A}シェ${_}ア`,pos:"動・名",meaning:"共有する・分け前",ex:{en:"They <u>share</u> similar symptoms.",ja:"彼らは似た症状を共有する。"}},
+  {id:"shift",level:2,tier:"☆",word:"shift",kana:`${A}シ${_}フト`,pos:"名・動",meaning:"移動・変化・交代",ex:{en:"There was a <u>shift</u> in the data.",ja:"データに変化があった。"},med:"left shift＝(白血球の)核左方移動。night shift＝夜勤。"},
+  {id:"signal",level:2,tier:"☆",word:"signal",kana:`${A}シ${_}グナル`,pos:"名・動",meaning:"信号・合図",ex:{en:"Nerves carry <u>signals</u> to the brain.",ja:"神経は脳へ信号を運ぶ。"},med:"signaling pathway＝シグナル伝達経路。"},
+  {id:"significant",level:2,tier:"☆",word:"significant",kana:`シグ${A}ニ${_}フィカント`,pos:"形容詞",meaning:"重要な・有意な",ex:{en:"The difference was <u>significant</u>.",ja:"その差は有意だった。"},med:"statistically significant＝統計的に有意（p<0.05）。"},
+  {id:"similar",level:2,tier:"・",word:"similar",kana:`${A}シ${_}ミラー`,pos:"形容詞",meaning:"類似した・似ている",ex:{en:"The two cases are very <u>similar</u>.",ja:"その2症例はよく似ている。"}},
+  {id:"simple",level:2,tier:"・",word:"simple",kana:`${A}シ${_}ンプル`,pos:"形容詞",meaning:"単純な・簡単な",ex:{en:"It was a <u>simple</u> procedure.",ja:"それは簡単な処置だった。"}},
+  {id:"situation",level:2,tier:"・",word:"situation",kana:`シチュ${A}エ${_}イション`,pos:"名詞",meaning:"状況・事態",ex:{en:"The <u>situation</u> improved quickly.",ja:"状況は急速に改善した。"}},
+  {id:"skill",level:2,tier:"・",word:"skill",kana:`ス${A}キ${_}ル`,pos:"名詞",meaning:"技能・腕前",ex:{en:"Surgery requires great <u>skill</u>.",ja:"手術には高い技能が要る。"}},
+  {id:"social",level:2,tier:"・",word:"social",kana:`${A}ソ${_}ウシャル`,pos:"形容詞",meaning:"社会的な",ex:{en:"<u>Social</u> support aids recovery.",ja:"社会的支援は回復を助ける。"}},
+  {id:"solve",level:2,tier:"・",word:"solve",kana:`${A}ソ${_}ルヴ`,pos:"動詞",meaning:"解決する・解く",ex:{en:"They <u>solved</u> the puzzle of the cause.",ja:"彼らは原因の謎を解いた。"}},
+  {id:"source",level:2,tier:"☆",word:"source",kana:`${A}ソー${_}ス`,pos:"名詞",meaning:"源・原因",ex:{en:"The <u>source</u> of infection was found.",ja:"感染源が見つかった。"},med:"source of infection＝感染源。"},
+  {id:"specific",level:2,tier:"☆",word:"specific",kana:`スピ${A}シ${_}フィック`,pos:"形容詞",meaning:"特定の・特異的な",ex:{en:"The test is highly <u>specific</u>.",ja:"その検査は特異度が高い。"},med:"specificity＝特異度、specific antibody＝特異抗体。"},
+  {id:"spread",level:2,tier:"☆",word:"spread",kana:`スプ${A}レ${_}ッド`,pos:"動・名",meaning:"広がる・拡散（する）",ex:{en:"The cancer had <u>spread</u> to the liver.",ja:"がんは肝臓に転移していた。"},med:"spread of cancer＝がんの拡がり・転移。"},
+  {id:"stable",level:2,tier:"☆",word:"stable",kana:`ス${A}テ${_}イブル`,pos:"形容詞",meaning:"安定した",ex:{en:"The patient is now <u>stable</u>.",ja:"患者は今は安定している。"},med:"stable condition＝安定した状態（↔unstable）。"},
+  {id:"standard",level:2,tier:"☆",word:"standard",kana:`ス${A}タ${_}ンダード`,pos:"名・形",meaning:"基準・標準",ex:{en:"This is the <u>standard</u> treatment.",ja:"これは標準治療だ。"},med:"standard of care＝標準治療、gold standard＝至適基準。"},
+  {id:"status",level:2,tier:"☆",word:"status",kana:`ス${A}テ${_}イタス`,pos:"名詞",meaning:"状態・状況",ex:{en:"The nurse checked his mental <u>status</u>.",ja:"看護師は彼の意識状態を確認した。"},med:"performance status＝全身状態、mental status＝意識状態。"},
+  {id:"structure",level:2,tier:"☆",word:"structure",kana:`ス${A}ト${_}ラクチャー`,pos:"名詞",meaning:"構造・構成",ex:{en:"The <u>structure</u> of the protein changed.",ja:"そのタンパク質の構造が変化した。"},med:"cell structure＝細胞構造。"},
+  {id:"struggle",level:2,tier:"・",word:"struggle",kana:`ス${A}ト${_}ラグル`,pos:"動・名",meaning:"苦闘する・もがく",ex:{en:"He <u>struggled</u> to breathe.",ja:"彼は呼吸に苦しんだ。"}},
+  {id:"style",level:2,tier:"☆",word:"style",kana:`ス${A}タ${_}イル`,pos:"名詞",meaning:"様式・流儀",ex:{en:"A healthy life<u>style</u> helps.",ja:"健康的な生活様式が役立つ。"},med:"lifestyle＝生活習慣（lifestyle disease 生活習慣病）。"},
+  {id:"succeed",level:2,tier:"・",word:"succeed",kana:`サク${A}シー${_}ド`,pos:"動詞",meaning:"成功する・後を継ぐ",ex:{en:"The operation <u>succeeded</u>.",ja:"手術は成功した。"}},
+  {id:"sufficient",level:2,tier:"・",word:"sufficient",kana:`サ${A}フィ${_}シェント`,pos:"形容詞",meaning:"十分な",ex:{en:"Is the dose <u>sufficient</u>?",ja:"その用量で十分ですか？"}},
+  {id:"suitable",level:2,tier:"・",word:"suitable",kana:`${A}スー${_}タブル`,pos:"形容詞",meaning:"適した・ふさわしい",ex:{en:"This drug is <u>suitable</u> for children.",ja:"この薬は子どもに適している。"}},
+  {id:"summary",level:2,tier:"・",word:"summary",kana:`${A}サ${_}マリー`,pos:"名詞",meaning:"要約・概要",ex:{en:"Write a <u>summary</u> of the case.",ja:"症例の要約を書いて。"}},
+  {id:"supply",level:2,tier:"☆",word:"supply",kana:`サプ${A}ラ${_}イ`,pos:"名・動",meaning:"供給（する）",ex:{en:"The artery <u>supplies</u> blood to the brain.",ja:"その動脈は脳へ血液を供給する。"},med:"blood supply＝血流供給、oxygen supply＝酸素供給。"},
+  {id:"suppose",level:2,tier:"・",word:"suppose",kana:`サ${A}ポ${_}ウズ`,pos:"動詞",meaning:"思う・仮定する",ex:{en:"I <u>suppose</u> it is viral.",ja:"ウイルス性だと思う。"}},
+  {id:"surface",level:2,tier:"☆",word:"surface",kana:`${A}サー${_}フェス`,pos:"名詞",meaning:"表面",ex:{en:"Markers on the cell <u>surface</u> were studied.",ja:"細胞表面のマーカーが調べられた。"},med:"cell surface＝細胞表面、surface antigen＝表面抗原。"},
+  {id:"survive",level:2,tier:"☆",word:"survive",kana:`サ${A}ヴァ${_}イヴ`,pos:"動詞",meaning:"生き残る・生存する",ex:{en:"Most patients <u>survive</u> with treatment.",ja:"多くの患者は治療で生存する。"},med:"survival rate＝生存率、five-year survival＝5年生存率。"},
+  {id:"sustain",level:2,tier:"☆",word:"sustain",kana:`サス${A}テ${_}イン`,pos:"動詞",meaning:"持続させる・(損傷を)受ける",ex:{en:"He <u>sustained</u> a head injury.",ja:"彼は頭部外傷を負った。"},med:"sustain an injury＝外傷を負う、sustained release＝徐放。"},
+  {id:"switch",level:2,tier:"☆",word:"switch",kana:`ス${A}イ${_}ッチ`,pos:"名・動",meaning:"切り替える・スイッチ",ex:{en:"They <u>switched</u> to another drug.",ja:"彼らは別の薬に切り替えた。"},med:"switch medication＝薬剤を変更する。"},
+  {id:"symbol",level:2,tier:"・",word:"symbol",kana:`${A}シ${_}ンボル`,pos:"名詞",meaning:"象徴・記号",ex:{en:"Each <u>symbol</u> means a different gene.",ja:"各記号は異なる遺伝子を意味する。"}},
+  {id:"symptom",level:2,tier:"☆",word:"symptom",kana:`${A}シ${_}ンプトム`,pos:"名詞",meaning:"症状",ex:{en:"The first <u>symptom</u> was a mild fever.",ja:"最初の症状は微熱だった。"},med:"present with symptoms＝症状を呈する、symptomatic＝症候性の。"},
+  {id:"target",level:2,tier:"☆",word:"target",kana:`${A}ター${_}ゲット`,pos:"名・動",meaning:"標的・対象（とする）",ex:{en:"The drug <u>targets</u> cancer cells.",ja:"その薬はがん細胞を標的にする。"},med:"targeted therapy＝分子標的治療。"},
+  {id:"task",level:2,tier:"・",word:"task",kana:`${A}タ${_}スク`,pos:"名詞",meaning:"作業・課題",ex:{en:"Hand hygiene is a basic <u>task</u>.",ja:"手指衛生は基本的な作業だ。"}},
+  {id:"technique",level:2,tier:"☆",word:"technique",kana:`テク${A}ニー${_}ク`,pos:"名詞",meaning:"技術・手法",ex:{en:"A new surgical <u>technique</u> was used.",ja:"新しい手術手技が使われた。"},med:"surgical technique＝手術手技、sterile technique＝無菌操作。"},
+  {id:"temporary",level:2,tier:"☆",word:"temporary",kana:`${A}テ${_}ンポラリー`,pos:"形容詞",meaning:"一時的な",ex:{en:"The relief was only <u>temporary</u>.",ja:"その緩和は一時的だった。"},med:"temporary relief＝一時的な緩和。"},
+  {id:"tend",level:2,tier:"・",word:"tend",kana:`${A}テ${_}ンド`,pos:"動詞",meaning:"~しがちだ・傾向がある",ex:{en:"Symptoms <u>tend</u> to worsen at night.",ja:"症状は夜に悪化しがちだ。"}},
+  {id:"term",level:2,tier:"☆",word:"term",kana:`${A}ター${_}ム`,pos:"名詞",meaning:"用語・期間",ex:{en:"Explain the medical <u>term</u> simply.",ja:"その医学用語を簡単に説明して。"},med:"long-term＝長期、full-term＝正期産。"},
+  {id:"theory",level:2,tier:"・",word:"theory",kana:`${A}シ${_}アリー`,pos:"名詞",meaning:"理論・学説",ex:{en:"The <u>theory</u> was later proven.",ja:"その理論は後に証明された。"}},
+  {id:"therefore",level:2,tier:"・",word:"therefore",kana:`${A}ゼ${_}アフォー`,pos:"副詞",meaning:"それゆえ・したがって",ex:{en:"The test was negative; <u>therefore</u>, no treatment was given.",ja:"検査は陰性、ゆえに治療はされなかった。"}},
+  {id:"threat",level:2,tier:"☆",word:"threat",kana:`ス${A}レ${_}ット`,pos:"名詞",meaning:"脅威",ex:{en:"Antibiotic resistance is a global <u>threat</u>.",ja:"抗生物質耐性は世界的脅威だ。"},med:"a threat to health＝健康への脅威。"},
+  {id:"tiny",level:2,tier:"☆",word:"tiny",kana:`${A}タ${_}イニー`,pos:"形容詞",meaning:"とても小さい",ex:{en:"<u>Tiny</u> blood vessels were damaged.",ja:"微小な血管が傷ついた。"},med:"tiny blood vessels＝微小血管（毛細血管）。"},
+  {id:"tool",level:2,tier:"・",word:"tool",kana:`${A}トゥー${_}ル`,pos:"名詞",meaning:"道具・手段",ex:{en:"AI is a useful diagnostic <u>tool</u>.",ja:"AIは有用な診断ツールだ。"}},
+  {id:"topic",level:2,tier:"・",word:"topic",kana:`${A}ト${_}ピック`,pos:"名詞",meaning:"話題・主題",ex:{en:"This is a hot research <u>topic</u>.",ja:"これは注目の研究テーマだ。"}},
+  {id:"trade",level:2,tier:"・",word:"trade",kana:`ト${A}レ${_}イド`,pos:"名・動",meaning:"取引・貿易（する）",ex:{en:"There is a <u>trade</u>-off between risk and benefit.",ja:"リスクと利益にはトレードオフがある。"}},
+  {id:"tradition",level:2,tier:"・",word:"tradition",kana:`トラ${A}ディ${_}ション`,pos:"名詞",meaning:"伝統・慣習",ex:{en:"Traditional medicine has a long <u>tradition</u>.",ja:"伝統医学には長い伝統がある。"}},
+  {id:"transfer",level:2,tier:"☆",word:"transfer",kana:`トランス${A}ファー${_}`,pos:"動・名",meaning:"移す・転院（する）",ex:{en:"The patient was <u>transferred</u> to the ICU.",ja:"患者はICUへ移送された。"},med:"transfer to a hospital＝転院、blood transfer＝輸血(transfusion)。"},
+  {id:"treat",level:2,tier:"☆",word:"treat",kana:`ト${A}リー${_}ト`,pos:"動詞",meaning:"治療する・扱う",ex:{en:"Antibiotics <u>treat</u> bacterial infections.",ja:"抗生物質は細菌感染を治療する。"},med:"treat a disease＝病気を治療する、treatment＝治療。"},
+  {id:"trend",level:2,tier:"・",word:"trend",kana:`ト${A}レ${_}ンド`,pos:"名詞",meaning:"傾向・趨勢",ex:{en:"There is an upward <u>trend</u> in cases.",ja:"症例数は増加傾向にある。"}},
+  {id:"trial",level:2,tier:"☆",word:"trial",kana:`ト${A}ラ${_}イアル`,pos:"名詞",meaning:"試験・試み・裁判",ex:{en:"The drug passed a clinical <u>trial</u>.",ja:"その薬は臨床試験を通過した。"},med:"clinical trial＝臨床試験、randomized controlled trial(RCT)＝ランダム化比較試験。"},
+  {id:"trust",level:2,tier:"・",word:"trust",kana:`ト${A}ラ${_}スト`,pos:"名・動",meaning:"信頼（する）",ex:{en:"Patients must <u>trust</u> their doctor.",ja:"患者は医師を信頼する必要がある。"}},
+  {id:"typical",level:2,tier:"☆",word:"typical",kana:`${A}ティ${_}ピカル`,pos:"形容詞",meaning:"典型的な",ex:{en:"These are <u>typical</u> symptoms of flu.",ja:"これらはインフルの典型的症状だ。"},med:"typical presentation＝典型的な症状像（↔atypical 非典型的）。"},
+  {id:"unique",level:2,tier:"・",word:"unique",kana:`ユー${A}ニー${_}ク`,pos:"形容詞",meaning:"独特の・唯一の",ex:{en:"Each case is <u>unique</u>.",ja:"各症例は固有のものだ。"}},
+  {id:"urban",level:2,tier:"・",word:"urban",kana:`${A}アー${_}バン`,pos:"形容詞",meaning:"都市の",ex:{en:"<u>Urban</u> areas have more hospitals.",ja:"都市部には病院が多い。"}},
+  {id:"usual",level:2,tier:"・",word:"usual",kana:`${A}ユー${_}ジュアル`,pos:"形容詞",meaning:"いつもの・通常の",ex:{en:"Take it at the <u>usual</u> time.",ja:"いつもの時間に服用して。"}},
+  {id:"valuable",level:2,tier:"・",word:"valuable",kana:`${A}ヴァ${_}リュアブル`,pos:"形容詞",meaning:"価値ある・貴重な",ex:{en:"This is <u>valuable</u> information.",ja:"これは貴重な情報だ。"}},
+  {id:"value",level:2,tier:"☆",word:"value",kana:`${A}ヴァ${_}リュー`,pos:"名詞",meaning:"価値・数値",ex:{en:"The lab <u>value</u> was abnormal.",ja:"検査値は異常だった。"},med:"lab value＝検査値、reference value＝基準値。"},
+  {id:"various",level:2,tier:"・",word:"various",kana:`${A}ヴェ${_}アリアス`,pos:"形容詞",meaning:"さまざまな",ex:{en:"<u>Various</u> factors are involved.",ja:"さまざまな要因が関与する。"}},
+  {id:"vary",level:2,tier:"☆",word:"vary",kana:`${A}ヴェ${_}アリー`,pos:"動詞",meaning:"異なる・変化する",ex:{en:"Symptoms <u>vary</u> from person to person.",ja:"症状は人によって異なる。"},med:"variation＝変異・ばらつき。"},
+  {id:"vehicle",level:2,tier:"・",word:"vehicle",kana:`${A}ヴィー${_}アクル`,pos:"名詞",meaning:"乗り物・媒体",ex:{en:"The cream is the <u>vehicle</u> for the drug.",ja:"そのクリームは薬の基剤(媒体)だ。"}},
+  {id:"view",level:2,tier:"・",word:"view",kana:`${A}ヴュ${_}ー`,pos:"名・動",meaning:"見方・眺め・見る",ex:{en:"From a medical <u>view</u>, rest is best.",ja:"医学的見地からは休養が最善だ。"}}
 ];
 
 /* ============ コース（デッキ） ============ */
-const DECKS=[
-  {id:"lv2",  name:"基礎（高校・TOEIC）",   f:w=>w.level===2},
-  {id:"ject", name:"🧩 語源 ject（投げる）",  f:w=>w.group==="ject"},
-  {id:"spect",name:"🧩 語源 spect（見る）",   f:w=>w.group==="spect"}
-];
-let deck="lv2";
+/* レベル別コース（手動）＋ 語源別コース（GROUPSから自動生成） */
+/* 基礎（語源グループ以外のlevel2）を、出現順に100語ずつサブコース化（自動） */
+const _basics=WORDS.filter(w=>w.level===2 && !w.group);
+const LEVEL_DECKS=[];
+for(let k=0; k*100<_basics.length; k++){
+  const slice=_basics.slice(k*100,k*100+100);
+  const ids=new Set(slice.map(w=>w.id));
+  LEVEL_DECKS.push({id:"basic"+k, name:`基礎 ${k*100+1}〜${k*100+slice.length}`, f:(w=>ids.has(w.id))});
+}
+if(!LEVEL_DECKS.length) LEVEL_DECKS.push({id:"basic0",name:"基礎",f:()=>false});
+const GROUP_DECKS=Object.keys(GROUPS).map(gid=>({
+  id:gid, name:`${GROUPS[gid].icon} ${GROUPS[gid].root}（${GROUPS[gid].meaning}）`, f:w=>w.group===gid
+}));
+const DECKS=[...LEVEL_DECKS,...GROUP_DECKS];
+let deck=LEVEL_DECKS[0].id;
 function pool(){ return WORDS.filter(DECKS.find(d=>d.id===deck).f); }
 function byId(id){ return WORDS.find(w=>w.id===id); }
 
@@ -329,6 +786,7 @@ ST.xp=ST.xp||0; ST.streak=ST.streak||0; ST.lastDay=ST.lastDay||null;
 ST.mastered=ST.mastered||{}; ST.ach=ST.ach||{};
 ST.qStreak=ST.qStreak||0; ST.qBest=ST.qBest||0;
 ST.srs=ST.srs||{};   // {id:{box,due,seen,done}}
+ST.order=ST.order||"weak";   // 出題順：weak=苦手優先 / seq=順番 / shuffle
 function save(){ localStorage.setItem("vocab_state",JSON.stringify(ST)); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function bumpStreak(){ const t=todayStr(); if(ST.lastDay===t)return;
@@ -375,11 +833,21 @@ function sceneSVG(w){
   const g=w.group?GROUPS[w.group]:null; if(!g)return "";
   if(g.theme==="throw") return throwScene(DIR[w.id]);
   if(g.theme==="look")  return lookScene();
+  if(g.theme==="carry") return carryScene(PORTDIR[w.id]);
+  if(g.theme==="pull")  return moveScene(BOX2,TRACTDIR[w.id],true);
+  if(g.theme==="send")  return moveScene(ENV,MITDIR[w.id]);
+  if(g.theme==="lead")  return moveScene(DUCK,DUCTDIR[w.id]);
+  if(g.theme==="write") return scriptScene();
   return "";
 }
 function dirLabelFor(w){
   const g=w.group?GROUPS[w.group]:null; if(!g)return "";
   if(g.theme==="throw") return DIRLABEL[DIR[w.id]]||"";
+  if(g.theme==="carry") return PORTLABEL[PORTDIR[w.id]]||"";
+  if(g.theme==="pull")  return TRACTLABEL[TRACTDIR[w.id]]||"";
+  if(g.theme==="send")  return MITLABEL[MITDIR[w.id]]||"";
+  if(g.theme==="lead")  return DUCTLABEL[DUCTDIR[w.id]]||"";
+  if(g.theme==="write") return SCRIPTLABEL[SCRIPTDIR[w.id]]||"";
   return "";  // spectは roots 行で説明
 }
 const SDEFS=`<defs>
@@ -404,6 +872,55 @@ function throwScene(dir){
   else if(dir==="together") b=`${AR("M26,58 L120,58")}${AR("M254,58 L160,58")}<circle cx="140" cy="58" r="13" fill="#ffd45b" opacity=".25"/>${BALL(126,58)}${BALL(154,58)}`;
   return `<svg class="scene" viewBox="0 0 280 116" xmlns="http://www.w3.org/2000/svg">${SDEFS}${b}</svg>`;
 }
+function carryScene(dir){
+  // マスコットが荷物を「運ぶ」方向別イラスト
+  const PBOX=(x,y)=>`<g><rect x="${x}" y="${y}" width="38" height="32" rx="6" fill="#262b52" stroke="#9aa0d0" stroke-width="2.5"/><line x1="${x}" y1="${y+12}" x2="${x+38}" y2="${y+12}" stroke="#9aa0d0" stroke-width="2"/><line x1="${x+19}" y1="${y}" x2="${x+19}" y2="${y+32}" stroke="#9aa0d0" stroke-width="2"/></g>`;
+  const AR=(d)=>`<path class="mv" d="${d}" stroke="url(#ar1)" stroke-width="4" fill="none" stroke-linecap="round" marker-end="url(#ah)"/>`;
+  const ware=(x)=>`<rect x="${x}" y="40" width="58" height="54" rx="12" fill="#1b1f3b" stroke="#9aa0d0" stroke-width="2.5"/><rect x="${x+18}" y="60" width="22" height="34" rx="4" fill="#0f1226" stroke="#9aa0d0" stroke-width="2"/>`;
+  let b="";
+  if(dir==="in")        b=`${ware(196)}${MASCOT(44,64)}${PBOX(78,58)}${AR("M120,74 L188,74")}`;
+  else if(dir==="out")  b=`${ware(18)}${MASCOT(96,64)}${PBOX(130,58)}${AR("M174,74 L246,74")}`;
+  else if(dir==="across")b=`${MASCOT(38,68)}${PBOX(72,62)}<rect x="150" y="56" width="11" height="46" rx="3" fill="#3a4070"/>${AR("M116,74 Q165,-4 246,74")}`;
+  else if(dir==="up")   b=`${MASCOT(151,80)}${PBOX(132,30)}<rect x="118" y="104" width="84" height="7" rx="3" fill="#262b52"/>${AR("M151,98 L151,66")}`;
+  else if(dir==="back") b=`<line x1="40" y1="42" x2="40" y2="94" stroke="#9aa0d0" stroke-width="3"/><path d="M40,44 l24,8 l-24,8 z" fill="#ff9ed2"/>${MASCOT(150,70)}${PBOX(184,56)}${AR("M188,70 C150,18 78,26 56,58")}`;
+  else if(dir==="at")   b=`${MASCOT(44,64)}${PBOX(78,58)}<circle cx="216" cy="66" r="22" fill="none" stroke="#9aa0d0" stroke-width="2.5"/><circle cx="216" cy="66" r="11" fill="none" stroke="#9aa0d0" stroke-width="2.5"/><circle cx="216" cy="66" r="4" fill="#ff5b7a"/>${AR("M120,74 L196,72")}`;
+  else                  b=`${MASCOT(70,64)}${PBOX(104,58)}${AR("M150,74 L246,74")}<text x="208" y="44" font-size="18">✨</text>`;
+  return `<svg class="scene" viewBox="0 0 280 116" xmlns="http://www.w3.org/2000/svg">${SDEFS}${b}</svg>`;
+}
+/* 汎用：荷物(glyph)を方向へ動かすイラスト。pull=trueでマスコットの方へ引き寄せる */
+const ENV=(x,y)=>`<g class="ball"><ellipse cx="${x+17}" cy="${y+27}" rx="16" ry="3" fill="#000" opacity=".12"/><rect x="${x}" y="${y}" width="34" height="24" rx="4" fill="#fff8e8" stroke="#caa92e" stroke-width="2"/><path d="M${x+1},${y+1} L${x+17},${y+13} L${x+33},${y+1}" fill="none" stroke="#caa92e" stroke-width="2"/></g>`;
+const DUCK=(x,y)=>`<g class="ball"><ellipse cx="${x}" cy="${y+15}" rx="13" ry="3" fill="#000" opacity=".12"/><ellipse cx="${x}" cy="${y+4}" rx="13" ry="10" fill="#ffd45b"/><circle cx="${x+9}" cy="${y-6}" r="8" fill="#ffd45b"/><circle cx="${x+11}" cy="${y-7}" r="1.6" fill="#23264a"/><path d="M${x+16},${y-7} l8,2 l-8,3 z" fill="#ff9b3b"/></g>`;
+const BOX2=(x,y)=>`<g class="ball"><ellipse cx="${x+16}" cy="${y+30}" rx="15" ry="3" fill="#000" opacity=".12"/><rect x="${x}" y="${y}" width="32" height="28" rx="5" fill="#262b52" stroke="#9aa0d0" stroke-width="2.5"/><line x1="${x}" y1="${y+10}" x2="${x+32}" y2="${y+10}" stroke="#9aa0d0" stroke-width="2"/></g>`;
+function moveScene(glyph,dir,pull){
+  const AR=(d)=>`<path class="mv" d="${d}" stroke="url(#ar1)" stroke-width="4" fill="none" stroke-linecap="round" marker-end="url(#ah)"/>`;
+  const ware=(x)=>`<rect x="${x}" y="40" width="58" height="54" rx="12" fill="#1b1f3b" stroke="#9aa0d0" stroke-width="2.5"/><rect x="${x+18}" y="60" width="22" height="34" rx="4" fill="#0f1226" stroke="#9aa0d0" stroke-width="2"/>`;
+  const target=(x,y)=>`<circle cx="${x}" cy="${y}" r="22" fill="none" stroke="#9aa0d0" stroke-width="2.5"/><circle cx="${x}" cy="${y}" r="11" fill="none" stroke="#9aa0d0" stroke-width="2.5"/><circle cx="${x}" cy="${y}" r="4" fill="#ff5b7a"/>`;
+  const flag=(x)=>`<line x1="${x}" y1="42" x2="${x}" y2="94" stroke="#9aa0d0" stroke-width="3"/><path d="M${x},44 l24,8 l-24,8 z" fill="#ff9ed2"/>`;
+  let b="";
+  if(dir==="fwd")        b=`${MASCOT(46,64)}${glyph(86,54)}${AR("M130,70 L244,70")}`;
+  else if(dir==="in")    b=`${ware(196)}${MASCOT(44,64)}${glyph(82,56)}${AR("M124,72 L188,72")}`;
+  else if(dir==="out")   b=`${ware(18)}${MASCOT(96,64)}${glyph(134,56)}${AR("M178,72 L246,72")}`;
+  else if(dir==="across")b=`${MASCOT(38,68)}${glyph(76,58)}<rect x="150" y="56" width="11" height="46" rx="3" fill="#3a4070"/>${AR("M120,70 Q165,-4 246,70")}`;
+  else if(dir==="back")  b=`${flag(40)}${MASCOT(150,68)}${glyph(190,54)}${AR("M190,68 C150,18 78,26 58,58")}`;
+  else if(dir==="at")    b=`${MASCOT(44,64)}${glyph(82,56)}${target(216,66)}${AR("M124,70 L196,70")}`;
+  else if(dir==="together")b=`${AR("M26,66 L118,66")}${AR("M254,66 L162,66")}${glyph(124,52)}`;
+  else if(dir==="apart") b=`${glyph(124,52)}${AR("M150,66 L246,66")}${AR("M130,66 L34,66")}`;
+  else if(dir==="down")  b=`${MASCOT(46,64)}${glyph(150,24)}${AR("M166,44 L166,92")}<rect x="120" y="100" width="120" height="7" rx="3" fill="#262b52"/>`;
+  else if(dir==="to")    b=`${MASCOT(44,64)}${glyph(196,54)}${AR("M196,70 L100,70")}`;
+  else                   b=`${MASCOT(70,64)}${glyph(110,54)}${AR("M154,70 L246,70")}<text x="212" y="42" font-size="18">✨</text>`;
+  return `<svg class="scene" viewBox="0 0 280 116" xmlns="http://www.w3.org/2000/svg">${SDEFS}${b}</svg>`;
+}
+function scriptScene(){
+  // 「書く」イラスト（方向の概念がないため共通の執筆シーン）
+  return `<svg class="scene" viewBox="0 0 280 116" xmlns="http://www.w3.org/2000/svg">${SDEFS}
+    ${MASCOT(48,66)}
+    <rect x="96" y="40" width="100" height="64" rx="9" fill="#fff8e8" stroke="#caa92e" stroke-width="2.5"/>
+    <line x1="112" y1="58" x2="182" y2="58" stroke="#caa92e" stroke-width="2" opacity=".55"/>
+    <line x1="112" y1="72" x2="182" y2="72" stroke="#caa92e" stroke-width="2" opacity=".55"/>
+    <line x1="112" y1="86" x2="158" y2="86" stroke="#caa92e" stroke-width="2" opacity=".55"/>
+    <text x="178" y="58" font-size="26" class="ball">✍️</text>
+  </svg>`;
+}
 function lookScene(){
   // マスコットが虫めがねで「見る」イラスト
   const sparkle=(x,y)=>`<path d="M${x},${y-7} L${x+2},${y-2} L${x+7},${y} L${x+2},${y+2} L${x},${y+7} L${x-2},${y+2} L${x-7},${y} L${x-2},${y-2} Z" fill="#ffd45b"/>`;
@@ -422,16 +939,26 @@ function lookScene(){
 /* ============ レンダリング ============ */
 const $=s=>document.querySelector(s);
 const stage=$("#stage");
-let mode="flash", i=0;
+let mode="flash", i=0, session=[];
+/* 苦手優先の並び替え：習熟度(box)が低い順。未学習は中間、覚えた語は後ろ。同点はランダム */
+function weakScore(w){ const s=ST.srs[w.id]; return s? s.box : 2.4; }
+function orderPool(P){
+  if(ST.order==="seq") return P.slice();
+  if(ST.order==="shuffle") return shuffle(P);
+  return P.map(w=>({w,s:weakScore(w),r:Math.random()})).sort((a,b)=>a.s-b.s||a.r-b.r).map(o=>o.w);
+}
+function startSession(){ session=orderPool(pool()); i=0; }
 function shuffle(a){a=a.slice();for(let k=a.length-1;k>0;k--){const j=Math.random()*(k+1)|0;[a[k],a[j]]=[a[j],a[k]];}return a;}
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),1500);}
 
 function render(){
   $("#streak").textContent=ST.streak; $("#xp").textContent=ST.xp;
-  $("#deck").disabled = (mode==="review"||mode==="grow");
+  $("#deck").disabled = (mode==="review"||mode==="grow"||mode==="settings");
   if(mode==="grow"){ bar(0); $("#counter").textContent=""; return renderGrow(); }
   if(mode==="review"){ bar(0); $("#counter").textContent=""; return renderReview(); }
-  const P=pool();
+  if(mode==="settings"){ bar(0); $("#counter").textContent=""; return renderSettings(); }
+  if(!session.length) startSession();
+  const P=session;
   bar(i/P.length*100);
   const g=P[0]&&P[0].group?GROUPS[P[0].group]:null;
   const head=g?`語源 ${g.icon} ${g.root}＝${g.meaning}`:DECKS.find(d=>d.id===deck).name;
@@ -440,6 +967,17 @@ function render(){
 }
 function bar(p){ $("#bar").style.width=p+"%"; }
 function speak(text){ try{const u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=.9;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){} }
+/* 読み上げ用：HTMLタグと日本語訳（（…））を除いた英語だけ取り出す */
+function ttsClean(s){ return String(s).replace(/<[^>]+>/g,"").split("（")[0].trim(); }
+/* 🔊ボタンのHTML。data-sayに読み上げる英文を入れる */
+function say(text,sm){ const t=String(text).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+  return `<button class="say${sm?" sm":""}" data-say="${t}" aria-label="読み上げ">🔊</button>`; }
+/* カード内の🔊を一括処理（stageは再描画されても本体は残るので委譲で拾う） */
+stage.addEventListener("click",e=>{ const b=e.target.closest(".say"); if(!b)return;
+  e.preventDefault(); e.stopPropagation();
+  speak(b.dataset.say);
+  b.classList.add("playing"); setTimeout(()=>b.classList.remove("playing"),700);
+});
 
 function groupChip(w){
   const g=w.group?GROUPS[w.group]:null;
@@ -449,10 +987,10 @@ function groupChip(w){
 function revealHTML(w){
   let h=`<div class="meaning">${w.meaning}</div>`;
   if(w.roots) h+=`<div class="roots">🧩 ${w.roots}</div>`;
-  if(w.ex) h+=`<div class="example"><span class="lbl">📝 例文</span><div class="en">${w.ex.en}</div><div class="ja">${w.ex.ja}</div></div>`;
+  if(w.ex) h+=`<div class="example"><span class="lbl">📝 例文</span><div class="en">${w.ex.en}${say(ttsClean(w.ex.en),1)}</div><div class="ja">${w.ex.ja}</div></div>`;
   if(w.forms) h+=`<div class="forms"><span class="lbl">🔤 語尾が変わると（接尾辞）</span>${w.forms.map(f=>`<div class="form-row"><div class="fw">${f.w}<span class="pos">${f.pos}</span></div><div class="fm">${f.mean}</div><div class="fr">${f.rule}</div></div>`).join("")}</div>`;
-  if(w.daj) h+=`<div class="note daj"><span class="lbl">😄 ダジャレ</span>${w.daj}${w.dajEn?`<div class="en2">🇬🇧 ${w.dajEn}</div>`:""}</div>`;
-  if(w.med) h+=`<div class="note med"><span class="lbl">🩺 医学ネタ</span>${w.med}${w.medEn?`<div class="en2">🇬🇧 ${w.medEn}</div>`:""}</div>`;
+  if(w.daj) h+=`<div class="note daj"><span class="lbl">😄 ダジャレ</span>${w.daj}${w.dajEn?`<div class="en2">🇬🇧 ${w.dajEn}${say(ttsClean(w.dajEn),1)}</div>`:""}</div>`;
+  if(w.med) h+=`<div class="note med"><span class="lbl">🩺 医学ネタ</span>${w.med}${w.medEn?`<div class="en2">🇬🇧 ${w.medEn}${say(ttsClean(w.medEn),1)}</div>`:""}</div>`;
   return h;
 }
 
@@ -460,7 +998,7 @@ function revealHTML(w){
 function renderFlash(P){
   if(i>=P.length) return renderDone("暗記カード1周クリア！");
   const w=P[i], dl=dirLabelFor(w);
-  stage.innerHTML=`<div class="card">${groupChip(w)}<div class="word">${w.word}</div><div class="kana">${w.kana}</div><div class="pos">${w.pos}</div>
+  stage.innerHTML=`<div class="card">${groupChip(w)}<div class="word">${w.word}${say(w.word)}</div><div class="kana">${w.kana}</div><div class="pos">${w.pos}</div>
     ${sceneSVG(w)}${dl?`<div class="dirlabel">${dl}</div>`:""}
     <div class="reveal" id="rev">${revealHTML(w)}</div></div>
    <div class="controls" id="ctrl"><button class="btn flip wide" id="flip">タップで意味を見る 👀</button></div>
@@ -476,7 +1014,7 @@ function renderFlash(P){
 function renderQuiz(P){
   if(i>=P.length) return renderDone("クイズ全問終了！");
   const w=P[i];
-  stage.innerHTML=`<div class="card">${groupChip(w)}<div class="qword">${w.word}</div><div class="qkana">${w.kana}</div>
+  stage.innerHTML=`<div class="card">${groupChip(w)}<div class="qword">${w.word}${say(w.word)}</div><div class="qkana">${w.kana}</div>
     <div class="qask">意味はどれ？</div><div class="choices" id="ch">${mkChoices(w,"meaning")}</div></div>`;
   bindChoices(w,()=>i++<P.length&&render());
 }
@@ -536,7 +1074,7 @@ function renderDone(msg){
   bar(100);
   stage.innerHTML=`<div class="done"><div class="big">🎉</div><h2>${msg}</h2><p>累計 ⭐${ST.xp} XP ／ 🔥${ST.streak}日連続</p>
    <div class="controls" style="margin-top:20px"><button class="btn ghost wide" id="again">もう1周する 🔄</button></div></div>`;
-  $("#again").onclick=()=>{i=0;render();};
+  $("#again").onclick=()=>{startSession();render();};
 }
 
 /* ============ 復習（SRS） ============ */
@@ -592,6 +1130,40 @@ function renderReviewCard(){
   });
 }
 
+/* ============ 設定・バックアップ ============ */
+function renderSettings(){
+  stage.innerHTML=`<div class="grow" style="align-items:stretch">
+    <div class="sectitle">⚙️ 設定・データ管理</div>
+    <div class="empty" style="padding:8px 4px;text-align:left;font-size:13px">進捗（XP・覚えた単語・復習記録・実績）は、このスマホのブラウザ内にだけ保存されています。万一に備え、ときどき下のバックアップを取っておくと安心です。</div>
+    <div class="sectitle">💾 バックアップ（書き出し）</div>
+    <div class="controls"><button class="btn good wide" id="exp">ファイルに書き出す ⬇️</button></div>
+    <div class="controls" style="margin-top:8px"><button class="btn ghost wide" id="copy">テキストをコピー 📋</button></div>
+    <div class="sectitle">♻️ 復元（読み込み）</div>
+    <textarea id="imptext" placeholder="バックアップのテキストをここに貼り付け" style="width:100%;height:74px;border-radius:12px;background:var(--card2);color:var(--text);border:1px solid #343a66;padding:10px;font-size:12px"></textarea>
+    <div class="controls" style="margin-top:8px"><button class="btn flip wide" id="imp">テキストから復元</button></div>
+    <div class="controls" style="margin-top:8px"><label class="btn ghost wide" style="text-align:center;cursor:pointer;margin:0">ファイルから復元 📁<input type="file" id="impfile" accept="application/json,.json" style="display:none"></label></div>
+    <div class="sectitle">⚠️ リセット</div>
+    <div class="controls"><button class="btn again wide" id="reset">進捗をすべて消す</button></div>
+  </div>`;
+  $("#exp").onclick=exportData;
+  $("#copy").onclick=()=>{ try{navigator.clipboard.writeText(JSON.stringify(ST)).then(()=>toast("コピーしました 📋"),()=>toast("コピーできませんでした"));}catch(e){toast("コピーできませんでした");} };
+  $("#imp").onclick=()=>{ try{ importData(JSON.parse($("#imptext").value)); }catch(e){ toast("読み込めません（形式エラー）"); } };
+  $("#impfile").onchange=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ importData(JSON.parse(r.result)); }catch(err){ toast("読み込めません（形式エラー）"); } }; r.readAsText(f); };
+  $("#reset").onclick=()=>{ if(confirm("本当に全進捗を消しますか？元に戻せません。")){ localStorage.removeItem("vocab_state"); location.reload(); } };
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(ST)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=`eitango-backup-${todayStr()}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast("バックアップを書き出しました ⬇️");
+}
+function importData(obj){
+  if(!obj||typeof obj!=="object") return toast("形式エラー");
+  Object.keys(obj).forEach(k=>{ ST[k]=obj[k]; });
+  save(); toast("復元しました ✅ 再読み込みします"); setTimeout(()=>location.reload(),900);
+}
+
 /* ============ 知恵の樹 ============ */
 const TREE_STAGES=["種","芽","若木","成木","開花","結実"];
 function treeLevel(xp){ return Math.min(5,Math.floor(xp/100)); }
@@ -626,14 +1198,19 @@ function renderGrow(){
 }
 
 /* ============ 初期化・イベント ============ */
-$("#deck").innerHTML=DECKS.map(d=>`<option value="${d.id}">${d.name}</option>`).join("");
-$("#deck").onchange=e=>{ deck=e.target.value; i=0; RQ=null; render(); };
+const _opt=d=>`<option value="${d.id}">${d.name}</option>`;
+$("#deck").innerHTML=
+  `<optgroup label="📚 基礎（100語ごと）">${LEVEL_DECKS.map(_opt).join("")}</optgroup>`+
+  `<optgroup label="🧩 語源で覚える（${GROUP_DECKS.length}）">${GROUP_DECKS.map(_opt).join("")}</optgroup>`;
+$("#deck").onchange=e=>{ deck=e.target.value; RQ=null; startSession(); render(); };
+$("#order").value=ST.order;
+$("#order").onchange=e=>{ ST.order=e.target.value; save(); startSession(); render(); };
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 document.querySelectorAll(".tab").forEach(t=>{ t.onclick=()=>{
   document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active");
-  mode=t.dataset.mode; i=0; RQ=null; render(); };
+  mode=t.dataset.mode; RQ=null; startSession(); render(); };
 });
-render();
+startSession(); render();
 </script>
 </body>
 </html>
