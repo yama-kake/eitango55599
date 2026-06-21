@@ -1,0 +1,14 @@
+{
+  "name": "語源で覚える英単語",
+  "short_name": "英単語",
+  "description": "語源・イラスト・ゲームで楽しく覚える英単語アプリ",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1226",
+  "theme_color": "#5b6cff",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

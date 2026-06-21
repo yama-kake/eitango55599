@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#5b6cff">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="英単語">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>語源で覚える英単語</title>
+<style>
+  :root{
+    --bg:#0f1226; --card:#1b1f3b; --card2:#232850; --accent:#5b6cff;
+    --accent2:#8a7bff; --good:#2fd27a; --bad:#ff5b7a; --text:#eef0ff;
+    --sub:#9aa0d0; --gold:#ffd45b;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    background:linear-gradient(160deg,#0f1226,#171a38); color:var(--text);
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;}
+  .app{width:100%; max-width:480px; min-height:100vh; display:flex; flex-direction:column; padding:0 16px 24px;}
+
+  header{padding:14px 4px 6px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{font-size:16px; margin:0; letter-spacing:.5px;}
+  .stats{display:flex; gap:8px; font-size:13px;}
+  .stat{background:var(--card); padding:5px 10px; border-radius:20px; display:flex; gap:5px; align-items:center;}
+  .stat b{color:var(--gold);}
+
+  .deckrow{display:flex; align-items:center; gap:8px; margin:4px 4px 6px;}
+  .deckrow label{font-size:12px; color:var(--sub);}
+  select#deck{flex:1; background:var(--card2); color:var(--text); border:1px solid #343a66;
+    border-radius:12px; padding:9px 12px; font-size:14px; font-weight:700;}
+
+  .progress{height:6px; background:var(--card); border-radius:6px; overflow:hidden; margin:4px 4px 4px;}
+  .progress > div{height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); width:0; transition:width .4s;}
+  .counter{font-size:12px; color:var(--sub); text-align:center; margin:6px 0 4px;}
+
+  .stage{flex:1; display:flex; flex-direction:column; justify-content:center; gap:14px; padding:8px 0;}
+
+  .card{background:linear-gradient(165deg,var(--card2),var(--card)); border-radius:24px;
+    padding:26px 22px; box-shadow:0 10px 40px rgba(0,0,0,.35); position:relative; overflow:hidden;}
+  .card::before{content:""; position:absolute; top:-40px; right:-40px; width:140px; height:140px;
+    background:radial-gradient(circle,var(--accent2),transparent 70%); opacity:.22;}
+  .rootchip{display:inline-flex; align-items:center; gap:6px; background:rgba(138,123,255,.18);
+    color:var(--accent2); padding:5px 12px; border-radius:20px; font-size:13px; font-weight:700; margin-bottom:12px;}
+  .word{font-size:38px; font-weight:800; letter-spacing:.5px; line-height:1.1;}
+  .kana{font-size:16px; color:var(--sub); margin-top:6px;}
+  .kana .ac{color:var(--gold); font-weight:800;}
+  .pos{font-size:12px; color:var(--sub); margin-top:2px;}
+
+  .reveal{margin-top:16px; display:none; animation:fade .35s;}
+  .reveal.show{display:block;}
+  @keyframes fade{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  .meaning{font-size:23px; font-weight:800; color:#fff;}
+  .roots{font-size:14px; color:var(--sub); margin-top:10px; line-height:1.5;}
+  .note{margin-top:12px; padding:12px 14px; border-radius:14px; font-size:14px; line-height:1.55;}
+  .note.med{background:rgba(47,210,122,.12); border-left:3px solid var(--good);}
+  .note.daj{background:rgba(255,212,91,.12); border-left:3px solid var(--gold); margin-top:10px;}
+  .note .lbl{display:block; font-size:11px; font-weight:800; letter-spacing:1px; margin-bottom:4px; opacity:.85;}
+  .note.med .lbl{color:var(--good);} .note.daj .lbl{color:var(--gold);}
+  .note .en2{margin-top:7px; padding-top:7px; border-top:1px dashed rgba(255,255,255,.18);
+    font-size:13px; font-style:italic; color:#dfe2ff; line-height:1.5;}
+
+  .example{margin-top:14px; padding:12px 14px; border-radius:14px; background:rgba(91,108,255,.14);
+    border-left:3px solid var(--accent); font-size:14px; line-height:1.55;}
+  .example .lbl{display:block; font-size:11px; font-weight:800; letter-spacing:1px; margin-bottom:4px; color:var(--accent2);}
+  .example .en{color:#fff; font-weight:600;}
+  .example .en u{text-decoration-color:var(--gold); text-underline-offset:3px;}
+  .example .ja{color:var(--sub); margin-top:4px; font-size:13px;}
+
+  .forms{margin-top:14px; padding:12px 14px; border-radius:14px; background:rgba(255,255,255,.05);}
+  .forms .lbl{display:block; font-size:11px; font-weight:800; letter-spacing:1px; margin-bottom:8px; color:var(--accent2);}
+  .form-row{display:flex; flex-direction:column; gap:2px; padding:7px 0; border-top:1px solid rgba(255,255,255,.07);}
+  .form-row:first-of-type{border-top:none;}
+  .form-row .fw{font-size:15px; font-weight:700;}
+  .form-row .fw .pos{font-size:11px; color:var(--sub); font-weight:500; margin-left:6px;}
+  .form-row .fm{font-size:13px; color:#fff;}
+  .form-row .fr{font-size:12px; color:var(--gold);}
+
+  .qword{font-size:32px; font-weight:800; text-align:center;}
+  .qkana{text-align:center; color:var(--sub); font-size:15px; margin-top:4px;}
+  .qask{text-align:center; color:var(--sub); font-size:13px; margin:14px 0 4px;}
+  .choices{display:flex; flex-direction:column; gap:10px;}
+  .choice{background:var(--card2); border:2px solid transparent; color:var(--text);
+    padding:15px 16px; border-radius:16px; font-size:16px; text-align:left; cursor:pointer; transition:.15s;}
+  .choice:active{transform:scale(.98);}
+  .choice.correct{border-color:var(--good); background:rgba(47,210,122,.18);}
+  .choice.wrong{border-color:var(--bad); background:rgba(255,91,122,.18);}
+  .choice.dim{opacity:.45;}
+
+  .controls{display:flex; gap:12px; margin-top:6px;}
+  button.btn{flex:1; border:none; border-radius:16px; padding:16px; font-size:16px; font-weight:800;
+    color:#fff; cursor:pointer; transition:.15s;}
+  button.btn:active{transform:scale(.97);}
+  .btn.flip{background:var(--accent);} .btn.again{background:var(--bad);}
+  .btn.good{background:var(--good);} .btn.ghost{background:var(--card2);}
+  .btn.wide{flex:1;}
+  .hint{text-align:center; color:var(--sub); font-size:12px; margin-top:10px;}
+  .empty{text-align:center; color:var(--sub); padding:50px 20px; font-size:15px; line-height:1.7;}
+
+  .done{text-align:center; padding:40px 10px;}
+  .done .big{font-size:54px;} .done h2{font-size:22px; margin:10px 0;} .done p{color:var(--sub); font-size:15px;}
+
+  .tabbar{display:flex; gap:7px; margin-top:14px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px;}
+  .tabbar::-webkit-scrollbar{display:none;}
+  .tab{flex:1 0 auto; min-width:56px; text-align:center; padding:10px 12px; border-radius:12px; font-size:13px; color:var(--sub);
+    background:var(--card); cursor:pointer; white-space:nowrap;}
+  .tab.active{color:#fff; background:var(--accent);}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(40px);
+    background:var(--card2); padding:12px 20px; border-radius:30px; font-size:14px; opacity:0; transition:.3s; pointer-events:none; box-shadow:0 6px 24px rgba(0,0,0,.4); z-index:9;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .scene{width:100%; height:118px; margin:6px 0 4px; display:block;}
+  .scene .ball{animation:throb 1.6s ease-in-out infinite;}
+  @keyframes throb{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+  .scene .mv{stroke-dasharray:5 5; animation:dash 1.2s linear infinite;}
+  @keyframes dash{to{stroke-dashoffset:-20;}}
+  .dirlabel{text-align:center; font-size:13px; color:var(--accent2); font-weight:700; margin-top:-2px;}
+
+  .speaker{display:flex; flex-direction:column; align-items:center; gap:14px; padding:6px 0 14px;}
+  .spkbtn{width:120px; height:120px; border-radius:50%; border:none; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%,#7a8bff,#5b6cff); color:#fff; font-size:46px;
+    box-shadow:0 10px 30px rgba(91,108,255,.45); transition:.15s;}
+  .spkbtn:active{transform:scale(.94);}
+  .spkbtn.ping{animation:ping .6s;}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(91,108,255,.5);}100%{box-shadow:0 0 0 28px rgba(91,108,255,0);}}
+  .spkhint{color:var(--sub); font-size:13px;}
+  .replay{background:var(--card2); color:var(--text); border:none; padding:9px 18px; border-radius:20px; font-size:13px; cursor:pointer;}
+
+  .grow{display:flex; flex-direction:column; align-items:center; text-align:center; padding:8px 0;}
+  .grow svg.tree{width:100%; max-width:320px; height:260px;}
+  .grow h2{font-size:20px; margin:6px 0 2px;} .grow .lv{color:var(--gold); font-weight:800;}
+  .grow .sub{color:var(--sub); font-size:13px; margin:2px 0 12px;}
+  .growbar{width:80%; height:10px; background:var(--card); border-radius:8px; overflow:hidden; margin:0 auto;}
+  .growbar > div{height:100%; background:linear-gradient(90deg,var(--good),var(--gold)); transition:width .5s;}
+  .growstats{display:flex; gap:10px; margin-top:14px; justify-content:center; flex-wrap:wrap;}
+  .gchip{background:var(--card); padding:8px 14px; border-radius:14px; font-size:13px;}
+  .gchip b{color:var(--gold); font-size:16px;}
+  .achtitle{width:100%; text-align:left; margin:22px 4px 10px; font-size:15px; font-weight:800;}
+  .achtitle span{float:right; color:var(--gold); font-size:13px;}
+  .badges{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; width:100%;}
+  .badge{background:var(--card); border-radius:16px; padding:12px 10px; text-align:center; border:1.5px solid transparent;}
+  .badge.on{border-color:var(--gold); background:linear-gradient(165deg,rgba(255,212,91,.16),var(--card)); animation:pop .4s;}
+  .badge.off{opacity:.55;}
+  @keyframes pop{0%{transform:scale(.9);}60%{transform:scale(1.04);}100%{transform:scale(1);}}
+  .badge .bi{font-size:30px; line-height:1.1;} .badge.off .bi{filter:grayscale(1);}
+  .badge .bn{font-size:13px; font-weight:800; margin-top:4px;} .badge.on .bn{color:var(--gold);}
+  .badge .bd{font-size:11px; color:var(--sub); margin-top:2px; line-height:1.35;}
+
+  /* 復習 */
+  .rev-hero{text-align:center;}
+  .rev-num{font-size:52px; font-weight:800; color:var(--gold); line-height:1.1;}
+  .rev-lbl{color:var(--sub); font-size:14px;}
+  .recordlist{margin-top:8px;}
+  .rec{display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--card); border-radius:12px; margin-bottom:7px;}
+  .rec .rw{font-weight:700; flex:1;} .rec .rk{color:var(--sub); font-size:12px;}
+  .stars{letter-spacing:1px; font-size:13px;}
+  .rec.done{border:1px solid var(--gold);}
+  .sectitle{font-size:14px; font-weight:800; margin:18px 4px 8px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🏛️ 語源で覚える英単語</h1>
+    <div class="stats">
+      <div class="stat">🔥<b id="streak">0</b></div>
+      <div class="stat">⭐<b id="xp">0</b></div>
+    </div>
+  </header>
+
+  <div class="deckrow">
+    <label>コース</label>
+    <select id="deck"></select>
+  </div>
+
+  <div class="progress"><div id="bar"></div></div>
+  <div class="counter" id="counter"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="tabbar">
+    <div class="tab active" data-mode="flash">📖 暗記</div>
+    <div class="tab" data-mode="quiz">✏️ 意味</div>
+    <div class="tab" data-mode="root">🧩 語源</div>
+    <div class="tab" data-mode="listen">🔊 音声</div>
+    <div class="tab" data-mode="review">📅 復習</div>
+    <div class="tab" data-mode="grow">🌳 樹</div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ 語源グループ ============ */
+const GROUPS={
+  ject :{root:"ject",        meaning:"投げる", icon:"🏐", theme:"throw"},
+  spect:{root:"spect / spic",meaning:"見る",   icon:"👀", theme:"look"}
+};
+const DIR={inject:"in",eject:"out",reject:"back",project:"fwd",object:"at",subject:"down",trajectory:"arc",conjecture:"together"};
+const DIRLABEL={in:"in- ＝ 中へ投げる",out:"e- ＝ 外へ投げる",back:"re- ＝ 後ろへ投げ返す",fwd:"pro- ＝ 前へ投げる",
+  at:"ob- ＝ 向かって投げる",down:"sub- ＝ 下へ投げる",arc:"tra- ＝ 横切って投げる",together:"con- ＝ 共に投げ合う"};
+
+/* ============ 単語データ ============ */
+const A="<b class='ac'>", _="</b>";  // アクセント強調の短縮
+const WORDS=[
+  /* ---- レベル2：高校・TOEIC基礎 ---- */
+  {id:"improve",level:2,tier:"☆",word:"improve",kana:`イン${A}プルー${_}ヴ`,pos:"動詞",meaning:"改善する・上達する",ex:{en:"Exercise can <u>improve</u> your health.",ja:"運動は健康を改善しうる。"},med:"improve symptoms＝症状を改善する。臨床で頻出。"},
+  {id:"increase",level:2,tier:"☆",word:"increase",kana:`イン${A}クリー${_}ス`,pos:"動・名",meaning:"増える・増加",roots:"in-(中へ) + crease(crescere＝育つ) → 育って増える",ex:{en:"The dose was <u>increased</u> gradually.",ja:"用量は徐々に増やされた。"},med:"increase the dose＝増量する（↔decrease 減量）。"},
+  {id:"decrease",level:2,tier:"・",word:"decrease",kana:`ディ${A}クリー${_}ス`,pos:"動・名",meaning:"減る・減少",ex:{en:"The pain began to <u>decrease</u>.",ja:"痛みが減り始めた。"}},
+  {id:"develop",level:2,tier:"☆",word:"develop",kana:`ディ${A}ヴェ${_}ロップ`,pos:"動詞",meaning:"発達する・発症する・開発する",ex:{en:"Symptoms <u>developed</u> slowly.",ja:"症状が徐々に現れた。"},med:"develop a disease＝発症する。病歴聴取の必須表現。"},
+  {id:"require",level:2,tier:"☆",word:"require",kana:`リ${A}クワイ${_}ア`,pos:"動詞",meaning:"必要とする・要求する",ex:{en:"This case <u>requires</u> more tests.",ja:"この症例はさらなる検査を要する。"},med:"required dose / required care など必須語。"},
+  {id:"include",level:2,tier:"☆",word:"include",kana:`イン${A}クルー${_}ド`,pos:"動詞",meaning:"含む",roots:"in-(中に) + clude(閉じる) → 中に閉じ込める",ex:{en:"The plan <u>includes</u> follow-up.",ja:"その計画は経過観察を含む。"}},
+  {id:"consider",level:2,tier:"☆",word:"consider",kana:`コン${A}シ${_}ダー`,pos:"動詞",meaning:"考慮する・みなす",ex:{en:"We should <u>consider</u> surgery.",ja:"手術を考慮すべきだ。"},med:"consider a diagnosis＝診断を考える。鑑別の頻出語。"},
+  {id:"condition",level:2,tier:"☆",word:"condition",kana:`コン${A}ディ${_}ション`,pos:"名詞",meaning:"状態・病態・条件",ex:{en:"The patient's <u>condition</u> is stable.",ja:"患者の状態は安定している。"},med:"general condition＝全身状態。pre-existing condition＝既往。"},
+  {id:"effect",level:2,tier:"☆",word:"effect",kana:`イ${A}フェ${_}クト`,pos:"名詞",meaning:"効果・影響",roots:"ef-(ex-：外へ) + fect(作る) → 外に作り出された結果",ex:{en:"The drug had a strong <u>effect</u>.",ja:"その薬は強い効果があった。"},med:"side effect＝副作用、adverse effect＝有害事象。"},
+  {id:"result",level:2,tier:"・",word:"result",kana:`リ${A}ザ${_}ルト`,pos:"名・動",meaning:"結果・生じる",ex:{en:"The test <u>results</u> were normal.",ja:"検査結果は正常だった。"}},
+  {id:"necessary",level:2,tier:"・",word:"necessary",kana:`${A}ネ${_}セサリー`,pos:"形容詞",meaning:"必要な",ex:{en:"Rest is <u>necessary</u> for recovery.",ja:"回復には休養が必要だ。"}},
+  {id:"however",level:2,tier:"・",word:"however",kana:`ハウ${A}エ${_}ヴァー`,pos:"副詞",meaning:"しかしながら",ex:{en:"<u>However</u>, the risk still remains.",ja:"しかし、リスクは依然残る。"}},
+  {id:"available",level:2,tier:"☆",word:"available",kana:`ア${A}ヴェイ${_}ラブル`,pos:"形容詞",meaning:"利用できる・入手できる",ex:{en:"The vaccine is now <u>available</u>.",ja:"そのワクチンは今や入手可能だ。"},med:"data are available＝データが利用可能。論文頻出。"},
+  {id:"benefit",level:2,tier:"☆",word:"benefit",kana:`${A}ベ${_}ネフィット`,pos:"名・動",meaning:"利益・恩恵・利する",roots:"bene-(良い) + fit(なす) → 良いことをなす",ex:{en:"The <u>benefits</u> outweigh the risks.",ja:"利益がリスクを上回る。"},med:"risk-benefit balance＝リスク・ベネフィットの天秤。"},
+  {id:"experience",level:2,tier:"・",word:"experience",kana:`イクス${A}ピ${_}アリエンス`,pos:"名・動",meaning:"経験（する）",ex:{en:"He <u>experienced</u> mild pain.",ja:"彼は軽い痛みを経験した。"}},
+  {id:"suggest",level:2,tier:"☆",word:"suggest",kana:`サ${A}ジェ${_}スト`,pos:"動詞",meaning:"提案する・示唆する",roots:"sug-(sub-：下から) + gest(運ぶ) → そっと差し出す",ex:{en:"The data <u>suggest</u> a link.",ja:"データは関連を示唆する。"},med:"findings suggest…＝所見は～を示唆する。考察の定番。"},
+  {id:"environment",level:2,tier:"・",word:"environment",kana:`イン${A}ヴァイ${_}ロンメント`,pos:"名詞",meaning:"環境",ex:{en:"Genes and <u>environment</u> both matter.",ja:"遺伝子と環境の両方が重要だ。"}},
+
+  /* ---- 語源グループ：ject（投げる） ---- */
+  {id:"inject",group:"ject",level:2,tier:"★",word:"inject",kana:`イン${A}ジェ${_}クト`,pos:"動詞",meaning:"注入する・注射する",
+   roots:"in-(中へ) + ject(投げる) → 中に投げ込む",
+   ex:{en:"The nurse will <u>inject</u> the vaccine into your arm.",ja:"看護師があなたの腕にワクチンを注射します。"},
+   forms:[{w:"injection",pos:"名詞",mean:"注射・注入",rule:"-tion：動詞→名詞"},{w:"injectable",pos:"形容詞",mean:"注射できる",rule:"-able：「～できる」"}],
+   daj:"医者がインジェクト、患者は「いん、ジェクト（嫌）」と顔をしかめた。",dajEn:"\"Inject? I object!\" cried the squeamish patient.（注射？やだ！と怖がる患者）",
+   med:"皮下注射=subcutaneous injection、静脈注射=intravenous injection。",medEn:"The doctor will inject insulin under the skin.（皮下にインスリンを注射する）"},
+  {id:"eject",group:"ject",level:3,tier:"★",word:"eject",kana:`イ${A}ジェ${_}クト`,pos:"動詞",meaning:"排出する・追い出す",
+   roots:"e-(外へ) + ject(投げる) → 外に投げ出す",
+   ex:{en:"Press this button to <u>eject</u> the disc.",ja:"このボタンを押すとディスクが排出されます。"},
+   forms:[{w:"ejection",pos:"名詞",mean:"排出・駆出",rule:"-tion：動詞→名詞"}],
+   daj:"「家(いえ)から出ろ！」とイジェクト、まさに“家ジェクト”。",dajEn:"The grumpy chair ejected him right out the door.（不機嫌な椅子が彼を排出）",
+   med:"ejection fraction(駆出率,EF)＝心臓が1回で血液を押し出す割合。",medEn:"A low ejection fraction means the heart pumps weakly.（駆出率が低い＝ポンプ力が弱い）"},
+  {id:"reject",group:"ject",level:3,tier:"★",word:"reject",kana:`リ${A}ジェ${_}クト`,pos:"動詞",meaning:"拒否する・却下する",
+   roots:"re-(後ろへ) + ject(投げる) → 投げ返す",
+   ex:{en:"The body may <u>reject</u> a transplanted organ.",ja:"体は移植された臓器を拒絶することがある。"},
+   forms:[{w:"rejection",pos:"名詞",mean:"拒絶・却下",rule:"-tion：動詞→名詞"}],
+   daj:"リジェクトされて、心が“リ・ジェクト（離別）”ばかり。",dajEn:"My heart says yes, but my body says reject.（心はイエス、でも体はリジェクト）",
+   med:"臓器移植の拒絶反応=(transplant) rejection。免疫が移植臓器を投げ返す。",medEn:"Her body began to reject the new kidney.（体は新しい腎臓を拒絶し始めた）"},
+  {id:"project",group:"ject",level:2,tier:"★",word:"project",kana:`${A}プロ${_}ジェクト / プロ${A}ジェ${_}クト`,pos:"名・動",meaning:"計画／投影する",
+   roots:"pro-(前へ) + ject(投げる) → 前に投げ出す",
+   ex:{en:"We started a new research <u>project</u> this year.",ja:"今年、新しい研究プロジェクトを始めた。"},
+   forms:[{w:"projection",pos:"名詞",mean:"投影・予測",rule:"-tion：動詞→名詞"},{w:"projector",pos:"名詞",mean:"映写機",rule:"-or：「～する物」"}],
+   daj:"無理なプロジェクト、社員の心は“前に投げ出され”そう。",dajEn:"His ego was so big it could project onto the moon.（自我が月にも投影できるほど巨大）",
+   med:"projection=画像診断の「投影像」。X線で体内を前に投影。",medEn:"The X-ray projects the bones onto the film.（X線が骨をフィルムに投影する）"},
+  {id:"object",group:"ject",level:2,tier:"★",word:"object",kana:`${A}オ${_}ブジェクト / オブ${A}ジェ${_}クト`,pos:"名・動",meaning:"物体・対象／反対する",
+   roots:"ob-(向かって) + ject(投げる) → 向かって投げる",
+   ex:{en:"Several doctors <u>objected</u> to the new plan.",ja:"数人の医師がその新しい計画に反対した。"},
+   forms:[{w:"objection",pos:"名詞",mean:"反対・異議",rule:"-tion：動詞→名詞"},{w:"objective",pos:"形/名",mean:"客観的な／目的",rule:"-ive：形容詞化"}],
+   daj:"「オブジェ、来た！」と反対(object)する芸術家。",dajEn:"\"I object!\" shouted the strange object on the desk.（机の上の変な物体が異議あり）",
+   med:"objective(客観的)。医療記録SOAPの“O”=Objective(客観的所見)。",medEn:"The nurse objected to the unsafe dose.（看護師は危険な用量に反対した）"},
+  {id:"subject",group:"ject",level:3,tier:"★",word:"subject",kana:`${A}サ${_}ブジェクト / サブ${A}ジェ${_}クト`,pos:"名・動",meaning:"主題・被験者／服従させる",
+   roots:"sub-(下へ) + ject(投げる) → 下に置かれるもの",
+   ex:{en:"Ten healthy <u>subjects</u> joined the study.",ja:"10人の健常被験者が研究に参加した。"},
+   forms:[{w:"subjective",pos:"形容詞",mean:"主観的な",rule:"-ive：形容詞化（↔objective）"},{w:"subjectively",pos:"副詞",mean:"主観的に",rule:"-ly：形容詞→副詞"}],
+   daj:"サブのジェスチャー担当が今日のサブジェクト(主題)。",dajEn:"I'm not your subject — I won't bow to a banana!（君の家来じゃない、バナナに屈しない）",
+   med:"論文で subject=「被験者」。例: healthy subjects(健常被験者)。",medEn:"All subjects gave informed consent.（全被験者が同意した）"},
+  {id:"trajectory",group:"ject",level:6,tier:"☆",word:"trajectory",kana:`トラ${A}ジェ${_}クトリー`,pos:"名詞",meaning:"軌道・軌跡",
+   roots:"tra-(横切って) + ject(投げる) → 投げたものが描く道",
+   ex:{en:"The disease followed a slow <u>trajectory</u>.",ja:"その病気はゆっくりとした経過をたどった。"},
+   med:"disease trajectory=「病の経過・たどる道筋」。慢性疾患で頻出。"},
+  {id:"conjecture",group:"ject",level:8,tier:"☆",word:"conjecture",kana:`コン${A}ジェ${_}クチャー`,pos:"名・動",meaning:"推測（する）・憶測",
+   roots:"con-(共に) + ject(投げる) → 考えを一緒に投げ合う",
+   ex:{en:"It is only a <u>conjecture</u> without any data.",ja:"データのない単なる推測にすぎない。"},
+   med:"考察で it is conjectured that…(～と推測される)。論文の論調語。"},
+
+  /* ---- 語源グループ：spect（見る） ---- */
+  {id:"inspect",group:"spect",level:4,tier:"★",word:"inspect",kana:`イン${A}スペ${_}クト`,pos:"動詞",meaning:"検査する・じっくり見る",
+   roots:"in-(中を) + spect(見る) → 中まで見る",
+   ex:{en:"The doctor will <u>inspect</u> the wound carefully.",ja:"医師は傷を注意深く調べる。"},
+   forms:[{w:"inspection",pos:"名詞",mean:"検査・視診",rule:"-tion：動詞→名詞"},{w:"inspector",pos:"名詞",mean:"検査官",rule:"-or：「～する人」"}],
+   daj:"「印（いん）、スペクト！」と検査官が印鑑を一つずつ確認。",dajEn:"The inspector inspects every inch — what an in-spect-or!（隅々まで検査する検査官）",
+   med:"診察の基本『視診』= inspection（視診・触診・打診・聴診の第一歩）。",medEn:"On inspection, the skin looked pale and dry.（視診では皮膚は蒼白で乾燥）"},
+  {id:"suspect",group:"spect",level:4,tier:"★",word:"suspect",kana:`サ${A}スペ${_}クト / ${A}サ${_}スペクト`,pos:"動・名",meaning:"疑う／容疑者",
+   roots:"sus-(下から) + spect(見る) → 下からこっそり見る",
+   ex:{en:"We <u>suspect</u> appendicitis in this patient.",ja:"この患者は虫垂炎が疑われる。"},
+   forms:[{w:"suspicion",pos:"名詞",mean:"疑い・容疑",rule:"spic+-ion：名詞化"},{w:"suspicious",pos:"形容詞",mean:"疑わしい",rule:"-ous：「～の性質」"}],
+   daj:"差す（さす）ペクトで容疑者を指さす、それがサスペクト。",dajEn:"I suspect the cat — it looks suspiciously full.（猫を疑う、満腹そうで怪しい）",
+   med:"臨床の必須語。clinical suspicion=臨床的疑い。",medEn:"A high index of suspicion is needed for early diagnosis.（早期診断には強い疑いが要る）"},
+  {id:"expect",group:"spect",level:3,tier:"★",word:"expect",kana:`イク${A}スペ${_}クト`,pos:"動詞",meaning:"期待する・予期する",
+   roots:"ex-(外を) + spect(見る) → 外を見て待つ",
+   ex:{en:"We <u>expect</u> the fever to drop by tomorrow.",ja:"明日までに熱が下がると見込んでいる。"},
+   forms:[{w:"expectation",pos:"名詞",mean:"期待・予想",rule:"-ation：動詞→名詞"},{w:"expectant",pos:"形容詞",mean:"期待した・妊娠中の",rule:"-ant：形容詞化"}],
+   daj:"駅（えき）スペクト、来ない電車を外を見て期待し続ける。",dajEn:"Don't expect a perfect exam — expect the unexpected!（完璧は期待するな、予想外を予想せよ）",
+   med:"expectant management=『経過観察（待機的管理）』。",medEn:"The expectant mother had a routine checkup.（その妊婦は定期健診を受けた）"},
+  {id:"respect",group:"spect",level:3,tier:"☆",word:"respect",kana:`リ${A}スペ${_}クト`,pos:"名・動",meaning:"尊敬（する）・点・関して",
+   roots:"re-(何度も) + spect(見る) → 何度も見たくなる → 敬意",
+   ex:{en:"With <u>respect</u> to the lesion, more tests are needed.",ja:"その病変に関しては、さらなる検査が必要だ。"},
+   med:"with respect to ～=『～に関して』。論文・カルテの頻出表現。"},
+  {id:"prospect",group:"spect",level:5,tier:"☆",word:"prospect",kana:`${A}プロ${_}スペクト`,pos:"名詞",meaning:"見込み・展望",
+   roots:"pro-(前を) + spect(見る) → 前方を見渡す",
+   ex:{en:"The <u>prospect</u> of recovery is good.",ja:"回復の見込みは良好だ。"},
+   med:"prospective study=『前向き研究』（↔retrospective 後ろ向き）。"},
+  {id:"aspect",group:"spect",level:4,tier:"☆",word:"aspect",kana:`${A}ア${_}スペクト`,pos:"名詞",meaning:"側面・観点・様相",
+   roots:"a-(ad-：～へ) + spect(見る) → ある方向から見た面",
+   ex:{en:"Every <u>aspect</u> of the disease was studied.",ja:"その病気のあらゆる側面が研究された。"},
+   med:"解剖で『面・側』。例: the anterior aspect of the arm=腕の前面。"},
+  {id:"perspective",group:"spect",level:5,tier:"☆",word:"perspective",kana:`パ${A}スペ${_}クティブ`,pos:"名詞",meaning:"視点・観点・遠近法",
+   roots:"per-(通して) + spect(見る) → 通して見る見方",
+   ex:{en:"From a clinical <u>perspective</u>, the result is promising.",ja:"臨床的な観点からは、その結果は有望だ。"},
+   med:"from a ～ perspective=『～の観点から』。考察で多用。"},
+  {id:"spectator",group:"spect",level:4,tier:"・",word:"spectator",kana:`ス${A}ペク${_}テイター`,pos:"名詞",meaning:"観客・見物人",
+   roots:"spect(見る) + -ator(～する人) → 見る人",ex:{en:"The <u>spectators</u> watched in silence.",ja:"観客は静かに見守った。"}},
+  {id:"conspicuous",group:"spect",level:7,tier:"・",word:"conspicuous",kana:`コン${A}スピ${_}キュアス`,pos:"形容詞",meaning:"目立つ・はっきり見える",
+   roots:"con-(完全に) + spic(見る) + -uous → すっかり見える",ex:{en:"The rash was <u>conspicuous</u> on her cheek.",ja:"その発疹は頬にはっきり目立っていた。"}},
+  {id:"introspection",group:"spect",level:8,tier:"・",word:"introspection",kana:`イントロ${A}スペ${_}クション`,pos:"名詞",meaning:"内省・自己反省",
+   roots:"intro-(内を) + spect(見る) + -ion → 内面を見ること",ex:{en:"Recovery often requires honest <u>introspection</u>.",ja:"回復にはしばしば正直な内省が必要だ。"}}
+];
+
+/* ============ コース（デッキ） ============ */
+const DECKS=[
+  {id:"lv2",  name:"基礎（高校・TOEIC）",   f:w=>w.level===2},
+  {id:"ject", name:"🧩 語源 ject（投げる）",  f:w=>w.group==="ject"},
+  {id:"spect",name:"🧩 語源 spect（見る）",   f:w=>w.group==="spect"}
+];
+let deck="lv2";
+function pool(){ return WORDS.filter(DECKS.find(d=>d.id===deck).f); }
+function byId(id){ return WORDS.find(w=>w.id===id); }
+
+/* ============ 状態（localStorage） ============ */
+const ST=JSON.parse(localStorage.getItem("vocab_state")||"{}");
+ST.xp=ST.xp||0; ST.streak=ST.streak||0; ST.lastDay=ST.lastDay||null;
+ST.mastered=ST.mastered||{}; ST.ach=ST.ach||{};
+ST.qStreak=ST.qStreak||0; ST.qBest=ST.qBest||0;
+ST.srs=ST.srs||{};   // {id:{box,due,seen,done}}
+function save(){ localStorage.setItem("vocab_state",JSON.stringify(ST)); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function bumpStreak(){ const t=todayStr(); if(ST.lastDay===t)return;
+  const y=new Date(Date.now()-864e5).toISOString().slice(0,10);
+  ST.streak=(ST.lastDay===y)?ST.streak+1:1; ST.lastDay=t; save(); }
+function master(id){ if(!ST.mastered[id]){ ST.mastered[id]=true; save(); } }
+function mc(){ return Object.keys(ST.mastered).length; }
+
+/* SRS：正解で間隔を伸ばす */
+const SRS_DAYS=[0,1,3,7,16,35];
+function srsAnswer(id,ok){
+  const s=ST.srs[id]||(ST.srs[id]={box:0,due:0,seen:0,done:0});
+  s.seen++;
+  s.box = ok ? Math.min(s.box+1,5) : Math.max(s.box-1,0);
+  s.due = Date.now()+SRS_DAYS[s.box]*864e5;
+  if(s.box>=5 && !s.done){ s.done=Date.now(); }
+  save();
+}
+function dueWords(){ const n=Date.now(); return WORDS.filter(w=>ST.srs[w.id]&&ST.srs[w.id].due<=n); }
+function learnedWords(){ return WORDS.filter(w=>ST.srs[w.id]); }
+
+/* ============ 実績 ============ */
+const TOTAL=()=>WORDS.length;
+const ACH=[
+  {id:"first",  icon:"🌱",name:"はじめの実",     desc:"最初の単語を覚える",      cond:s=>mc()>=1},
+  {id:"ten",    icon:"🌿",name:"芽吹きの10語",   desc:"10語を覚える",            cond:s=>mc()>=10},
+  {id:"xp100",  icon:"⭐",name:"知恵の芽生え",   desc:"累計100XPを貯める",       cond:s=>s.xp>=100},
+  {id:"streak3",icon:"🔥",name:"三日坊主、卒業", desc:"3日連続で学習する",       cond:s=>s.streak>=3},
+  {id:"quiz",   icon:"🎯",name:"クイズ無双",     desc:"クイズで8問連続正解",     cond:s=>s.qBest>=8},
+  {id:"review", icon:"📅",name:"復習マスター",   desc:"5語を完全習得する",       cond:s=>learnedWords().filter(w=>ST.srs[w.id].box>=5).length>=5},
+  {id:"blossom",icon:"🌸",name:"満開",           desc:"知恵の樹を開花させる",    cond:s=>treeLevel(s.xp)>=4},
+  {id:"streak7",icon:"📆",name:"週間皆勤賞",     desc:"7日連続で学習する",       cond:s=>s.streak>=7},
+  {id:"xp500",  icon:"🌳",name:"知恵の大樹",     desc:"累計500XPを貯める",       cond:s=>s.xp>=500},
+  {id:"golden", icon:"👑",name:"黄金の知恵樹",   desc:"50語制覇＋累計500XP",     cond:s=>mc()>=50&&s.xp>=500},
+];
+function checkAch(){ const nw=[];
+  ACH.forEach(a=>{ if(!ST.ach[a.id]&&a.cond(ST)){ ST.ach[a.id]=Date.now(); nw.push(a);} });
+  if(nw.length){ save(); nw.forEach((a,k)=>setTimeout(()=>toast(`🎉 実績解除：${a.icon} ${a.name}`),700+k*1500)); }
+}
+function isGolden(){ return !!ST.ach.golden; }
+
+/* ============ イラスト ============ */
+function sceneSVG(w){
+  const g=w.group?GROUPS[w.group]:null; if(!g)return "";
+  if(g.theme==="throw") return throwScene(DIR[w.id]);
+  if(g.theme==="look")  return lookScene();
+  return "";
+}
+function dirLabelFor(w){
+  const g=w.group?GROUPS[w.group]:null; if(!g)return "";
+  if(g.theme==="throw") return DIRLABEL[DIR[w.id]]||"";
+  return "";  // spectは roots 行で説明
+}
+const SDEFS=`<defs>
+  <radialGradient id="bg1" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="#fff0b8"/><stop offset="55%" stop-color="#ffd45b"/><stop offset="100%" stop-color="#e9b330"/></radialGradient>
+  <linearGradient id="bd1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a99bff"/><stop offset="100%" stop-color="#7a6bf0"/></linearGradient>
+  <linearGradient id="ar1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#6f7dff"/><stop offset="100%" stop-color="#a98bff"/></linearGradient>
+  <marker id="ah" markerWidth="10" markerHeight="10" refX="5.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Q2.5,3 0,0 Z" fill="#a98bff"/></marker>
+</defs>`;
+const BALL=(x,y)=>`<g class="ball"><ellipse cx="${x}" cy="${y+11}" rx="9" ry="2.6" fill="#000" opacity=".12"/><circle cx="${x}" cy="${y}" r="10" fill="url(#bg1)"/><ellipse cx="${x-3}" cy="${y-3.5}" rx="3.2" ry="2.2" fill="#fff" opacity=".85"/></g>`;
+const MASCOT=(x=42,y=62)=>`<g><ellipse cx="${x}" cy="${y+24}" rx="22" ry="5" fill="#000" opacity=".14"/><circle cx="${x}" cy="${y}" r="21" fill="url(#bd1)"/><ellipse cx="${x}" cy="${y+7}" rx="13" ry="10" fill="#fff" opacity=".18"/><circle cx="${x-7}" cy="${y-3}" r="4.2" fill="#fff"/><circle cx="${x-6}" cy="${y-2}" r="2.1" fill="#23264a"/><circle cx="${x+7}" cy="${y-3}" r="4.2" fill="#fff"/><circle cx="${x+8}" cy="${y-2}" r="2.1" fill="#23264a"/><circle cx="${x-11}" cy="${y+5}" r="3" fill="#ff9ed2" opacity=".7"/><circle cx="${x+11}" cy="${y+5}" r="3" fill="#ff9ed2" opacity=".7"/><path d="M${x-4},${y+7} Q${x},${y+11} ${x+4},${y+7}" stroke="#23264a" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M${x+16},${y-6} q12,-6 20,2" stroke="url(#bd1)" stroke-width="6" fill="none" stroke-linecap="round"/></g>`;
+function throwScene(dir){
+  const box=(x)=>`<rect x="${x}" y="40" width="56" height="50" rx="14" fill="#262b52" stroke="#9aa0d0" stroke-width="2.5"/><rect x="${x+8}" y="34" width="40" height="10" rx="5" fill="#1b1f3b" stroke="#9aa0d0" stroke-width="2.5"/>`;
+  const AR=(d)=>`<path class="mv" d="${d}" stroke="url(#ar1)" stroke-width="4" fill="none" stroke-linecap="round" marker-end="url(#ah)"/>`;
+  let b="";
+  if(dir==="in") b=`${box(196)}${MASCOT()}${AR("M68,56 C120,42 158,48 188,58")}${BALL(70,56)}`;
+  else if(dir==="out") b=`${box(26)}${AR("M92,60 C140,52 190,56 232,58")}${BALL(98,60)}`;
+  else if(dir==="back") b=`${MASCOT()}${AR("M64,44 C150,4 214,42 150,70")}${BALL(150,70)}`;
+  else if(dir==="fwd") b=`${MASCOT()}${AR("M68,58 L238,58")}${BALL(70,58)}`;
+  else if(dir==="at") b=`${MASCOT()}<circle cx="226" cy="58" r="23" fill="#262b52" stroke="#9aa0d0" stroke-width="2.5"/><circle cx="226" cy="58" r="13" fill="none" stroke="#9aa0d0" stroke-width="2.5"/><circle cx="226" cy="58" r="4.5" fill="#ff5b7a"/>${AR("M66,58 L196,58")}${BALL(74,58)}`;
+  else if(dir==="down") b=`${MASCOT(150,30)}<rect x="150" y="98" width="110" height="8" rx="4" fill="#262b52"/>${AR("M150,52 L150,92")}${BALL(150,54)}`;
+  else if(dir==="arc") b=`${MASCOT()}${AR("M60,70 Q150,-10 244,70")}${BALL(70,58)}`;
+  else if(dir==="together") b=`${AR("M26,58 L120,58")}${AR("M254,58 L160,58")}<circle cx="140" cy="58" r="13" fill="#ffd45b" opacity=".25"/>${BALL(126,58)}${BALL(154,58)}`;
+  return `<svg class="scene" viewBox="0 0 280 116" xmlns="http://www.w3.org/2000/svg">${SDEFS}${b}</svg>`;
+}
+function lookScene(){
+  // マスコットが虫めがねで「見る」イラスト
+  const sparkle=(x,y)=>`<path d="M${x},${y-7} L${x+2},${y-2} L${x+7},${y} L${x+2},${y+2} L${x},${y+7} L${x-2},${y+2} L${x-7},${y} L${x-2},${y-2} Z" fill="#ffd45b"/>`;
+  return `<svg class="scene" viewBox="0 0 280 116" xmlns="http://www.w3.org/2000/svg">${SDEFS}
+    ${MASCOT(48,64)}
+    <line class="mv" x1="84" y1="60" x2="150" y2="58" stroke="url(#ar1)" stroke-width="3.5" stroke-linecap="round" marker-end="url(#ah)"/>
+    <g transform="translate(192,54)">
+      <circle r="30" fill="rgba(91,108,255,.10)" stroke="#a98bff" stroke-width="5"/>
+      <circle r="22" fill="none" stroke="#9aa0d0" stroke-width="2" opacity=".6"/>
+      <line x1="22" y1="22" x2="44" y2="44" stroke="#a98bff" stroke-width="8" stroke-linecap="round"/>
+      ${sparkle(-4,-6)}
+    </g>
+  </svg>`;
+}
+
+/* ============ レンダリング ============ */
+const $=s=>document.querySelector(s);
+const stage=$("#stage");
+let mode="flash", i=0;
+function shuffle(a){a=a.slice();for(let k=a.length-1;k>0;k--){const j=Math.random()*(k+1)|0;[a[k],a[j]]=[a[j],a[k]];}return a;}
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),1500);}
+
+function render(){
+  $("#streak").textContent=ST.streak; $("#xp").textContent=ST.xp;
+  $("#deck").disabled = (mode==="review"||mode==="grow");
+  if(mode==="grow"){ bar(0); $("#counter").textContent=""; return renderGrow(); }
+  if(mode==="review"){ bar(0); $("#counter").textContent=""; return renderReview(); }
+  const P=pool();
+  bar(i/P.length*100);
+  const g=P[0]&&P[0].group?GROUPS[P[0].group]:null;
+  const head=g?`語源 ${g.icon} ${g.root}＝${g.meaning}`:DECKS.find(d=>d.id===deck).name;
+  $("#counter").textContent = i<P.length ? `${i+1} / ${P.length}　【${head}】` : "";
+  ({flash:renderFlash,quiz:renderQuiz,root:renderRoot,listen:renderListen}[mode])(P);
+}
+function bar(p){ $("#bar").style.width=p+"%"; }
+function speak(text){ try{const u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=.9;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){} }
+
+function groupChip(w){
+  const g=w.group?GROUPS[w.group]:null;
+  return g?`<span class="rootchip">${g.icon} ${g.root} = ${g.meaning}</span>`
+          :`<span class="rootchip">${DECKS.find(d=>d.id===deck).name}</span>`;
+}
+function revealHTML(w){
+  let h=`<div class="meaning">${w.meaning}</div>`;
+  if(w.roots) h+=`<div class="roots">🧩 ${w.roots}</div>`;
+  if(w.ex) h+=`<div class="example"><span class="lbl">📝 例文</span><div class="en">${w.ex.en}</div><div class="ja">${w.ex.ja}</div></div>`;
+  if(w.forms) h+=`<div class="forms"><span class="lbl">🔤 語尾が変わると（接尾辞）</span>${w.forms.map(f=>`<div class="form-row"><div class="fw">${f.w}<span class="pos">${f.pos}</span></div><div class="fm">${f.mean}</div><div class="fr">${f.rule}</div></div>`).join("")}</div>`;
+  if(w.daj) h+=`<div class="note daj"><span class="lbl">😄 ダジャレ</span>${w.daj}${w.dajEn?`<div class="en2">🇬🇧 ${w.dajEn}</div>`:""}</div>`;
+  if(w.med) h+=`<div class="note med"><span class="lbl">🩺 医学ネタ</span>${w.med}${w.medEn?`<div class="en2">🇬🇧 ${w.medEn}</div>`:""}</div>`;
+  return h;
+}
+
+/* 暗記 */
+function renderFlash(P){
+  if(i>=P.length) return renderDone("暗記カード1周クリア！");
+  const w=P[i], dl=dirLabelFor(w);
+  stage.innerHTML=`<div class="card">${groupChip(w)}<div class="word">${w.word}</div><div class="kana">${w.kana}</div><div class="pos">${w.pos}</div>
+    ${sceneSVG(w)}${dl?`<div class="dirlabel">${dl}</div>`:""}
+    <div class="reveal" id="rev">${revealHTML(w)}</div></div>
+   <div class="controls" id="ctrl"><button class="btn flip wide" id="flip">タップで意味を見る 👀</button></div>
+   <div class="hint">語源やイラストで意味を“推理”してからめくると定着UP</div>`;
+  $("#flip").onclick=()=>{ $("#rev").classList.add("show");
+    $("#ctrl").innerHTML=`<button class="btn again" id="ng">むずい😣</button><button class="btn good" id="ok">覚えた👍</button>`;
+    $("#ok").onclick=()=>{ST.xp+=10;master(w.id);srsAnswer(w.id,true);bumpStreak();save();toast("+10 XP ⭐ 樹に実がなった🍎");checkAch();i++;render();};
+    $("#ng").onclick=()=>{ST.xp+=3;srsAnswer(w.id,false);bumpStreak();save();toast("+3 XP（また復習で出るよ）");checkAch();i++;render();};
+  };
+}
+
+/* 意味クイズ */
+function renderQuiz(P){
+  if(i>=P.length) return renderDone("クイズ全問終了！");
+  const w=P[i];
+  stage.innerHTML=`<div class="card">${groupChip(w)}<div class="qword">${w.word}</div><div class="qkana">${w.kana}</div>
+    <div class="qask">意味はどれ？</div><div class="choices" id="ch">${mkChoices(w,"meaning")}</div></div>`;
+  bindChoices(w,()=>i++<P.length&&render());
+}
+/* 語源クイズ */
+function renderRoot(P){
+  const RP=P.filter(w=>w.roots);
+  if(RP.length===0) return stage.innerHTML=`<div class="empty">このコースには語源クイズ対象の単語がありません。<br>「🧩語源」コースを選ぶと遊べます。</div>`;
+  if(i>=RP.length) return renderDone("語源クイズ終了！");
+  const w=RP[i], dl=dirLabelFor(w);
+  stage.innerHTML=`<div class="card">${groupChip(w)}${sceneSVG(w)}${dl?`<div class="dirlabel">${dl}</div>`:""}
+    <div class="qask">この語源が表す単語は？</div><div class="roots" style="text-align:center;margin:0 0 6px">🧩 ${w.roots}</div>
+    <div class="choices" id="ch">${mkChoices(w,"word2")}</div></div>`;
+  bindChoices(w,()=>{i++;render();});
+}
+/* リスニング */
+function renderListen(P){
+  if(i>=P.length) return renderDone("リスニング終了！");
+  const w=P[i];
+  stage.innerHTML=`<div class="card"><span class="rootchip">🎧 聞こえた単語の意味は？</span>
+    <div class="speaker"><button class="spkbtn" id="spk">🔊</button><button class="replay" id="rep">もう一度きく 🔁</button><div class="spkhint" id="hint">タップで再生</div></div>
+    <div class="choices" id="ch">${mkChoices(w,"meaning")}</div></div>`;
+  const play=()=>{speak(w.word);const b=$("#spk");b.classList.remove("ping");void b.offsetWidth;b.classList.add("ping");};
+  $("#spk").onclick=play; $("#rep").onclick=play; setTimeout(play,350);
+  bindChoices(w,()=>{i++;render();},()=>{$("#hint").innerHTML=`<b style="color:#fff">${w.word}</b>　${w.kana}`;});
+}
+
+/* 選択肢生成：kind=meaning(意味4択) / word2(英単語+意味) */
+function mkChoices(w,kind){
+  const wrongs=shuffle(WORDS.filter(x=>x.id!==w.id)).slice(0,3);
+  const opts=shuffle([w,...wrongs]);
+  return opts.map(o=>{
+    const ok=o.id===w.id;
+    if(kind==="word2") return `<button class="choice" data-ok="${ok}"><b>${o.word}</b> <span style="color:var(--sub);font-size:13px">${o.meaning}</span></button>`;
+    return `<button class="choice" data-ok="${ok}">${o.meaning}</button>`;
+  }).join("");
+}
+let answered=false;
+function bindChoices(w,after,onReveal){
+  answered=false;
+  $("#ch").querySelectorAll(".choice").forEach(btn=>{
+    btn.onclick=()=>{
+      if(answered)return; answered=true;
+      const ok=btn.dataset.ok==="true";
+      $("#ch").querySelectorAll(".choice").forEach(b=>{ if(b.dataset.ok==="true")b.classList.add("correct"); else b.classList.add("dim"); });
+      if(!ok)btn.classList.add("wrong");
+      if(onReveal)onReveal();
+      bumpStreak(); srsAnswer(w.id,ok);
+      if(ok){ST.xp+=15;master(w.id);ST.qStreak++;ST.qBest=Math.max(ST.qBest,ST.qStreak);toast(`正解！ +15 XP ⭐🍎 ${ST.qStreak}連続`);}
+      else{ST.xp+=2;ST.qStreak=0;toast("おしい！ +2 XP");}
+      save(); checkAch(); $("#streak").textContent=ST.streak; $("#xp").textContent=ST.xp;
+      setTimeout(after,1150);
+    };
+  });
+}
+
+function renderDone(msg){
+  bar(100);
+  stage.innerHTML=`<div class="done"><div class="big">🎉</div><h2>${msg}</h2><p>累計 ⭐${ST.xp} XP ／ 🔥${ST.streak}日連続</p>
+   <div class="controls" style="margin-top:20px"><button class="btn ghost wide" id="again">もう1周する 🔄</button></div></div>`;
+  $("#again").onclick=()=>{i=0;render();};
+}
+
+/* ============ 復習（SRS） ============ */
+let RQ=null, ri=0;
+function renderReview(){
+  if(RQ) return renderReviewCard();
+  const due=dueWords(), learned=learnedWords();
+  const mastered=learned.filter(w=>ST.srs[w.id].box>=5);
+  const stars=b=>"★".repeat(b)+"☆".repeat(5-b);
+  const recRows=learned.sort((a,b)=>ST.srs[b.id].box-ST.srs[a.id].box).map(w=>{
+    const s=ST.srs[w.id];
+    return `<div class="rec ${s.box>=5?'done':''}"><span class="rw">${w.word}</span><span class="rk">${w.meaning}</span><span class="stars" style="color:${s.box>=5?'var(--gold)':'var(--sub)'}">${stars(s.box)}</span></div>`;
+  }).join("");
+  stage.innerHTML=`<div class="rev-hero">
+      <div class="rev-num">${due.length}</div><div class="rev-lbl">今日 復習する単語</div>
+      <div class="controls" style="margin-top:16px">
+        ${due.length?`<button class="btn good wide" id="startDue">復習をはじめる 📅</button>`:`<button class="btn ghost wide" id="practice">${learned.length?"今は0語。全部を練習する 🔁":"まだ単語を学んでいません"}</button>`}
+      </div>
+    </div>
+    <div class="growstats" style="margin-top:18px">
+      <div class="gchip">📚 学習済み <b>${learned.length}</b></div>
+      <div class="gchip">⏳ 復習待ち <b>${due.length}</b></div>
+      <div class="gchip">👑 完全習得 <b>${mastered.length}</b></div>
+    </div>
+    ${learned.length?`<div class="sectitle">🗂️ 記録（★5で「完全に覚えた」）</div><div class="recordlist">${recRows}</div>
+      ${due.length?`<div class="controls" style="margin-top:6px"><button class="btn ghost wide" id="practice">復習待ちが無くても全部練習する 🔁</button></div>`:""}`
+     :`<div class="empty">まず「📖暗記」や「✏️意味」で単語を覚えると、ここに記録が貯まり、最適なタイミングで復習に出てきます。</div>`}`;
+  const sd=$("#startDue"); if(sd) sd.onclick=()=>startReview(due);
+  const pr=$("#practice"); if(pr&&learned.length) pr.onclick=()=>startReview(learned);
+}
+function startReview(list){ RQ=shuffle(list); ri=0; renderReviewCard(); }
+function renderReviewCard(){
+  if(ri>=RQ.length){ const n=RQ.length; RQ=null; toast(`復習完了！ ${n}語チェック ✅`); return renderReview(); }
+  bar(ri/RQ.length*100);
+  $("#counter").textContent=`復習 ${ri+1} / ${RQ.length}`;
+  const w=RQ[ri];
+  stage.innerHTML=`<div class="card"><span class="rootchip">📅 復習：意味はどれ？</span>
+    <div class="qword">${w.word}</div><div class="qkana">${w.kana}</div>
+    <div class="choices" id="ch">${mkChoices(w,"meaning")}</div></div>`;
+  answered=false;
+  $("#ch").querySelectorAll(".choice").forEach(btn=>{
+    btn.onclick=()=>{
+      if(answered)return; answered=true;
+      const ok=btn.dataset.ok==="true";
+      $("#ch").querySelectorAll(".choice").forEach(b=>{ if(b.dataset.ok==="true")b.classList.add("correct"); else b.classList.add("dim"); });
+      if(!ok)btn.classList.add("wrong");
+      srsAnswer(w.id,ok); bumpStreak();
+      if(ok){ST.xp+=8; const s=ST.srs[w.id]; toast(s.box>=5?"完璧！👑 完全習得":"よし、定着中！ +8XP");}
+      else{ST.xp+=2; toast("復習で出し直すね 🔁");}
+      save(); checkAch(); $("#xp").textContent=ST.xp; $("#streak").textContent=ST.streak;
+      ri++; setTimeout(renderReviewCard,1000);
+    };
+  });
+}
+
+/* ============ 知恵の樹 ============ */
+const TREE_STAGES=["種","芽","若木","成木","開花","結実"];
+function treeLevel(xp){ return Math.min(5,Math.floor(xp/100)); }
+function drawTree(stage_,fruits,golden){
+  const trunkH=[4,18,46,84,108,120][stage_], crown=[0,16,34,58,70,78][stage_];
+  const cy=230-trunkH-crown*0.5;
+  const lA=golden?"#ffd45b":"#2fd27a",lB=golden?"#e6b73e":"#27b86a",lC=golden?"#ffe488":"#34e07f",tr=golden?"#b8863f":"#9c6b3f";
+  let glow=golden?`<circle cx="160" cy="${cy}" r="${crown+18}" fill="#ffd45b" opacity=".18"/>`:"";
+  let leaves="";
+  if(stage_>=1){ const bl=stage_>=4;
+    leaves=`<circle cx="160" cy="${cy}" r="${crown}" fill="${lA}" opacity=".92"/><circle cx="${160-crown*0.6}" cy="${cy+crown*0.3}" r="${crown*0.7}" fill="${lB}" opacity=".92"/><circle cx="${160+crown*0.6}" cy="${cy+crown*0.3}" r="${crown*0.7}" fill="${lC}" opacity=".92"/>`;
+    if(bl){for(let k=0;k<6;k++){const a=k/6*6.28;leaves+=`<circle cx="${160+Math.cos(a)*crown*0.7}" cy="${cy+Math.sin(a)*crown*0.7}" r="5" fill="${golden?'#fff3c4':'#ff9ed2'}"/>`;}}
+  } else if(stage_===0){ leaves=`<ellipse cx="160" cy="224" rx="13" ry="9" fill="#a9794e"/><path d="M160,216 q-8,-12 0,-18 q8,6 0,18" fill="#34e07f"/>`; }
+  else { leaves=`<path d="M160,222 q-14,-20 0,-30 q14,10 0,30" fill="#34e07f"/>`; }
+  let fr=""; const cap=stage_>=2?16:0, fn=Math.min(fruits,cap);
+  for(let k=0;k<fn;k++){const a=k/Math.max(cap,1)*6.28;fr+=`<circle cx="${160+Math.cos(a)*crown*0.78}" cy="${cy+Math.sin(a)*crown*0.78}" r="6" fill="#ff5b7a" stroke="#c23" stroke-width="1.5"/>`;}
+  let cr=golden?`<text x="160" y="${cy-crown-6}" font-size="26" text-anchor="middle">👑</text>`:"";
+  return `<svg class="tree" viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg"><ellipse cx="160" cy="244" rx="120" ry="14" fill="#1b1f3b"/>${glow}<rect x="152" y="${230-trunkH}" width="16" height="${trunkH}" rx="5" fill="${tr}"/>${leaves}${fr}${cr}</svg>`;
+}
+function renderGrow(){
+  const lv=treeLevel(ST.xp),fruits=mc(),gold=isGolden();
+  const nextXP=(lv+1)*100,prog=lv>=5?100:((ST.xp-lv*100)/100*100);
+  const unlocked=ACH.filter(a=>ST.ach[a.id]).length;
+  const badges=ACH.map(a=>{const on=!!ST.ach[a.id];return `<div class="badge ${on?'on':'off'}"><div class="bi">${on?a.icon:'🔒'}</div><div class="bn">${a.name}</div><div class="bd">${a.desc}</div></div>`;}).join("");
+  stage.innerHTML=`<div class="grow">${drawTree(lv,fruits,gold)}
+    <h2>知恵の樹：<span class="lv">${gold?'黄金樹 👑':TREE_STAGES[lv]}</span></h2>
+    <div class="sub">${gold?"全実績コンプ！最強の知恵の樹です✨":(lv>=5?"最大まで育ちました！実を増やそう🍎":`次の成長まで あと ${nextXP-ST.xp} XP`)}</div>
+    <div class="growbar"><div style="width:${prog}%"></div></div>
+    <div class="growstats"><div class="gchip">⭐ XP <b>${ST.xp}</b></div><div class="gchip">🍎 単語 <b>${fruits}</b></div><div class="gchip">🔥 連続 <b>${ST.streak}</b>日</div><div class="gchip">🏆 実績 <b>${unlocked}/${ACH.length}</b></div></div>
+    <div class="achtitle">🏆 実績 <span>${unlocked} / ${ACH.length} 解除</span></div>
+    <div class="badges">${badges}</div></div>`;
+}
+
+/* ============ 初期化・イベント ============ */
+$("#deck").innerHTML=DECKS.map(d=>`<option value="${d.id}">${d.name}</option>`).join("");
+$("#deck").onchange=e=>{ deck=e.target.value; i=0; RQ=null; render(); };
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
+document.querySelectorAll(".tab").forEach(t=>{ t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active");
+  mode=t.dataset.mode; i=0; RQ=null; render(); };
+});
+render();
+</script>
+</body>
+</html>
