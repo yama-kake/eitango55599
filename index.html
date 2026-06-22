@@ -108,6 +108,9 @@
   .tab{flex:1 0 auto; min-width:56px; text-align:center; padding:10px 12px; border-radius:12px; font-size:13px; color:var(--sub);
     background:var(--card); cursor:pointer; white-space:nowrap;}
   .tab.active{color:#fff; background:var(--accent);}
+  .wlrow{display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #232847; font-size:13px;}
+  .wlrow:nth-child(even){background:rgba(255,255,255,.02);}
+  .wlrow.dup{background:rgba(255,90,122,.18);}
   .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(40px);
     background:var(--card2); padding:12px 20px; border-radius:30px; font-size:14px; opacity:0; transition:.3s; pointer-events:none; box-shadow:0 6px 24px rgba(0,0,0,.4); z-index:9;}
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
@@ -202,6 +205,7 @@
     <div class="tab" data-mode="review">📅 定期復習</div>
     <div class="tab" data-mode="grow">🏆 実績</div>
     <div class="tab" data-mode="settings">⚙️ 設定</div>
+    <div class="tab" data-mode="help">📘 使い方</div>
   </div>
   <div style="text-align:center;font-size:10px;color:var(--sub);margin-top:7px;letter-spacing:.5px">
     収録 <span id="wc">–</span> 語 ・ v<span id="ver">–</span>
@@ -1799,6 +1803,17 @@ function srsAnswer(id,ok){
   if(s.box>=5 && !s.done){ s.done=Date.now(); }
   save();
 }
+/* SRS 3段階自己採点：0=忘れた / 1=あいまい / 2=思い出せた */
+function srsGrade(id,grade){
+  const s=ST.srs[id]||(ST.srs[id]={box:0,due:0,seen:0,done:0});
+  s.seen++;
+  if(grade>=2) s.box=Math.min(s.box+1,5);          // 思い出せた→間隔を伸ばす
+  else if(grade===0) s.box=Math.max(s.box-2,0);    // 忘れた→大きく戻す
+  // あいまい(1)→boxは据え置き（同じ間隔でもう一度）
+  s.due=Date.now()+SRS_DAYS[s.box]*864e5;
+  if(s.box>=5 && !s.done){ s.done=Date.now(); }
+  save();
+}
 function dueWords(){ const n=Date.now(); return WORDS.filter(w=>ST.srs[w.id]&&ST.srs[w.id].due<=n); }
 function learnedWords(){ return WORDS.filter(w=>ST.srs[w.id]); }
 
@@ -1957,10 +1972,11 @@ function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");cl
 
 function render(){
   $("#streak").textContent=ST.streak; $("#xp").textContent=ST.xp;
-  $("#deck").disabled = (mode==="review"||mode==="grow"||mode==="settings");
+  $("#deck").disabled = (mode==="review"||mode==="grow"||mode==="settings"||mode==="help");
   if(mode==="grow"){ bar(0); $("#counter").textContent=""; return renderGrow(); }
   if(mode==="review"){ bar(0); $("#counter").textContent=""; return renderReview(); }
   if(mode==="settings"){ bar(0); $("#counter").textContent=""; return renderSettings(); }
+  if(mode==="help"){ bar(0); $("#counter").textContent=""; return renderHelp(); }
   if(!session.length) startSession();
   const P=session;
   bar(i/P.length*100);
@@ -1970,6 +1986,60 @@ function render(){
   ({flash:renderFlash,quiz:renderQuiz,root:renderRoot,listen:renderListen}[mode])(P);
 }
 function bar(p){ $("#bar").style.width=p+"%"; }
+
+/* 📘 使い方ガイド ＋ 開発者用 単語一覧 */
+function renderHelp(){
+  // 重複チェック（id・スペル）
+  const idc={}, wc={};
+  WORDS.forEach(w=>{ idc[w.id]=(idc[w.id]||0)+1; const k=w.word.toLowerCase(); wc[k]=(wc[k]||0)+1; });
+  const dupId=Object.keys(idc).filter(k=>idc[k]>1);
+  const dupWord=Object.keys(wc).filter(k=>wc[k]>1);
+  const basics=WORDS.filter(w=>w.level===2&&!w.group).length;
+  // 一覧（スペル順ソート＝重複が隣接して見つけやすい）
+  const sorted=[...WORDS].sort((a,b)=>a.word.toLowerCase().localeCompare(b.word.toLowerCase()));
+  const rows=sorted.map((w,idx)=>{
+    const dup = idc[w.id]>1 || wc[w.word.toLowerCase()]>1;
+    const tag = w.group?GROUPS[w.group].icon:"📚";
+    return `<div class="wlrow${dup?' dup':''}" data-s="${(w.word+' '+w.meaning+' '+w.id).toLowerCase()}">
+      <span style="width:34px;color:var(--sub);text-align:right">${idx+1}</span>
+      <span style="width:22px;text-align:center">${tag}</span>
+      <b style="flex:0 0 38%">${w.word}</b>
+      <span style="flex:1;color:var(--sub);font-size:12px">${w.meaning}</span></div>`;
+  }).join("");
+  stage.innerHTML=`<div class="grow" style="align-items:stretch">
+    <div class="sectitle">📘 アプリの使い方</div>
+    <div class="empty" style="text-align:left;padding:6px 4px;font-size:13px;line-height:1.7">
+      <b>覚え方のコツは2つだけ：</b><br>
+      ① <b>思い出す</b>（見る前に意味を言う） ＋ ② <b>間隔をあけて繰り返す</b>（📅定期復習）。<br><br>
+      <b>おすすめ毎日ルーティン（10〜15分）</b><br>
+      1. <b>📅定期復習</b>を最初に消化（忘れかけを優先）<br>
+      2. <b>📖単語帳</b>で新規を少量（10〜20語）。<u>めくる前に意味を声に出す</u><br>
+      &nbsp;&nbsp;→ 忘れた / あいまい / 思い出せた を正直に押す<br>
+      3. <b>✏️4択クイズ</b>で腕試し（🧩語源・📖例文ヒントは“詰まった時だけ”開く）
+    </div>
+    <div class="sectitle">各タブの役割</div>
+    <div class="empty" style="text-align:left;padding:6px 4px;font-size:12.5px;line-height:1.7">
+      📖 単語帳：見て覚える＋3段階自己採点（SRS連動）<br>
+      ✏️ 4択クイズ：意味を4択で／語源・例文ヒック付き<br>
+      🧩 語源クイズ：語源から単語を当てる<br>
+      🔊 音声クイズ：聞いて意味を当てる<br>
+      📅 定期復習：忘れる頃に自動で出す（最重要）<br>
+      🏆 実績：知恵の樹・バッジ<br>
+      ⚙️ 設定：バックアップ／ヒントON-OFF
+    </div>
+    <div class="sectitle">🛠 開発者：単語チェック</div>
+    <div class="empty" style="text-align:left;padding:6px 4px;font-size:13px;line-height:1.8">
+      総数 <b>${WORDS.length}</b> ／ 基礎 <b>${basics}</b> ／ 語源 <b>${WORDS.length-basics}</b>（${Object.keys(GROUPS).length}グループ）<br>
+      重複ID：${dupId.length?`<b style="color:#ff8a8a">⚠️ ${dupId.join(", ")}</b>`:`なし ✅`}<br>
+      重複スペル：${dupWord.length?`<b style="color:#ff8a8a">⚠️ ${dupWord.join(", ")}</b>`:`なし ✅`}
+    </div>
+    <input id="wlfilter" placeholder="🔍 単語・意味・IDで絞り込み" style="width:100%;border-radius:10px;background:var(--card2);color:var(--text);border:1px solid #343a66;padding:9px;font-size:13px;margin-bottom:8px">
+    <div class="wlist" style="max-height:48vh;overflow-y:auto;border:1px solid #2a2f55;border-radius:12px">${rows}</div>
+  </div>`;
+  const f=$("#wlfilter");
+  f.oninput=e=>{ const q=e.target.value.toLowerCase().trim();
+    document.querySelectorAll(".wlrow").forEach(r=>{ r.style.display=r.dataset.s.includes(q)?"":"none"; }); };
+}
 function speak(text){ try{const u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=.9;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){} }
 /* 読み上げ用：HTMLタグと日本語訳（（…））を除いた英語だけ取り出す */
 function ttsClean(s){ return String(s).replace(/<[^>]+>/g,"").split("（")[0].trim(); }
@@ -2006,12 +2076,13 @@ function renderFlash(P){
     ${sceneSVG(w)}${dl?`<div class="dirlabel">${dl}</div>`:""}
     ${(!w.group && rootHint(w))?`<div class="dirlabel">🧩 ヒント: ${rootHint(w)}</div>`:""}
     <div class="reveal" id="rev">${revealHTML(w)}</div></div>
-   <div class="controls" id="ctrl"><button class="btn flip wide" id="flip">タップで意味を見る 👀</button></div>
-   <div class="hint">語源やイラストで意味を“推理”してからめくると定着UP</div>`;
+   <div class="controls" id="ctrl"><button class="btn flip wide" id="flip">まず意味を思い出して → タップで確認 👀</button></div>
+   <div class="hint">👀 めくる前に、意味を声に出して言ってみよう（“思い出す”と定着UP）</div>`;
   $("#flip").onclick=()=>{ $("#rev").classList.add("show");
-    $("#ctrl").innerHTML=`<button class="btn again" id="ng">むずい😣</button><button class="btn good" id="ok">覚えた👍</button>`;
-    $("#ok").onclick=()=>{ST.xp+=10;master(w.id);srsAnswer(w.id,true);bumpStreak();save();toast("+10 XP ⭐ 樹に実がなった🍎");checkAch();i++;render();};
-    $("#ng").onclick=()=>{ST.xp+=3;srsAnswer(w.id,false);bumpStreak();save();toast("+3 XP（また復習で出るよ）");checkAch();i++;render();};
+    $("#ctrl").innerHTML=`<button class="btn again" id="g0">忘れた😣</button><button class="btn flip" id="g1">あいまい🤔</button><button class="btn good" id="g2">思い出せた👍</button>`;
+    $("#g2").onclick=()=>{ST.xp+=10;master(w.id);srsGrade(w.id,2);bumpStreak();save();toast("+10 XP ⭐ 樹に実がなった🍎");checkAch();i++;render();};
+    $("#g1").onclick=()=>{ST.xp+=6;srsGrade(w.id,1);bumpStreak();save();toast("+6 XP（近いうちにまた出すね）");checkAch();i++;render();};
+    $("#g0").onclick=()=>{ST.xp+=3;srsGrade(w.id,0);bumpStreak();save();toast("+3 XP（すぐ復習に戻すよ）");checkAch();i++;render();};
   };
 }
 
