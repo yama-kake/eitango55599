@@ -111,6 +111,8 @@
   .wlrow{display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #232847; font-size:13px;}
   .wlrow:nth-child(even){background:rgba(255,255,255,.02);}
   .wlrow.dup{background:rgba(255,90,122,.18);}
+  .cloze{font-size:18px; line-height:1.8; text-align:center; margin:8px 4px;}
+  .cloze .blank{color:var(--accent); font-weight:bold; letter-spacing:2px;}
   .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(40px);
     background:var(--card2); padding:12px 20px; border-radius:30px; font-size:14px; opacity:0; transition:.3s; pointer-events:none; box-shadow:0 6px 24px rgba(0,0,0,.4); z-index:9;}
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
@@ -202,6 +204,7 @@
     <div class="tab" data-mode="quiz">✏️ 4択クイズ</div>
     <div class="tab" data-mode="root">🧩 語源クイズ</div>
     <div class="tab" data-mode="listen">🔊 音声クイズ</div>
+    <div class="tab" data-mode="cloze">📝 穴埋め</div>
     <div class="tab" data-mode="review">📅 定期復習</div>
     <div class="tab" data-mode="grow">🏆 実績</div>
     <div class="tab" data-mode="settings">⚙️ 設定</div>
@@ -1983,7 +1986,7 @@ function render(){
   const g=P[0]&&P[0].group?GROUPS[P[0].group]:null;
   const head=g?`語源 ${g.icon} ${g.root}＝${g.meaning}`:DECKS.find(d=>d.id===deck).name;
   $("#counter").textContent = i<P.length ? `${i+1} / ${P.length}　【${head}】` : "";
-  ({flash:renderFlash,quiz:renderQuiz,root:renderRoot,listen:renderListen}[mode])(P);
+  ({flash:renderFlash,quiz:renderQuiz,root:renderRoot,listen:renderListen,cloze:renderCloze}[mode])(P);
 }
 function bar(p){ $("#bar").style.width=p+"%"; }
 
@@ -2115,6 +2118,47 @@ function renderListen(P){
   const play=()=>{speak(w.word);const b=$("#spk");b.classList.remove("ping");void b.offsetWidth;b.classList.add("ping");};
   $("#spk").onclick=play; $("#rep").onclick=play; setTimeout(play,350);
   bindChoices(w,()=>{i++;render();},()=>{$("#hint").innerHTML=`<b style="color:#fff">${w.word}</b>　${w.kana}`;});
+}
+
+/* 📝 例文穴埋め（入力式・思い出しを最大化） */
+function clozeForms(w){ // 受理する答え：原形＋例文中の語形（小文字・英字のみ）
+  const m=(w.ex&&w.ex.en||"").match(/<u>(.*?)<\/u>/);
+  const infl=m?m[1].replace(/<[^>]+>/g,""):"";
+  return [w.word,infl].filter(Boolean).map(s=>s.toLowerCase().replace(/[^a-z]/g,""));
+}
+function renderCloze(P){
+  const CP=P.filter(w=>w.ex&&w.ex.en&&/<u>.*?<\/u>/.test(w.ex.en));
+  if(CP.length===0) return stage.innerHTML=`<div class="empty">このコースには穴埋めできる例文がありません。</div>`;
+  if(i>=CP.length) return renderDone("穴埋めテスト終了！");
+  const w=CP[i];
+  const blanked=w.ex.en.replace(/<u>.*?<\/u>/,'<span class="blank">______</span>');
+  stage.innerHTML=`<div class="card">${groupChip(w)}
+    <div class="qask">空所に入る英単語は？</div>
+    <div class="cloze">${blanked}</div>
+    <div style="text-align:center;color:var(--sub);font-size:13px;margin:2px 0 8px">ヒント（意味）：<b style="color:var(--text)">${w.meaning}</b>　${say(ttsClean(w.ex.en),1)}</div>
+    <input id="clz" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="英単語を入力" style="width:100%;text-align:center;font-size:18px;border-radius:12px;background:var(--card2);color:var(--text);border:1px solid #343a66;padding:11px">
+    <div class="controls" style="margin-top:10px"><button class="btn ghost" id="clhint">最初の文字💡</button><button class="btn good" id="clchk">解答する</button></div>
+    <div class="reveal" id="rev"></div></div>`;
+  const ans=clozeForms(w);
+  let done=false;
+  const finish=()=>{
+    if(done)return; done=true;
+    const v=$("#clz").value.toLowerCase().replace(/[^a-z]/g,"");
+    const ok=v.length>0 && ans.includes(v);
+    $("#clz").disabled=true;
+    $("#rev").classList.add("show");
+    $("#rev").innerHTML=`<div class="meaning">${ok?"⭕ 正解！":"❌ 正解は"} <b>${w.word}</b>　${w.kana}</div>
+      <div class="example"><div class="en">${w.ex.en}${say(ttsClean(w.ex.en),1)}</div><div class="ja">${w.ex.ja}</div></div>`;
+    srsGrade(w.id, ok?2:0); bumpStreak();
+    if(ok){ST.xp+=12;master(w.id);ST.qStreak++;ST.qBest=Math.max(ST.qBest,ST.qStreak);toast(`正解！ +12 XP ⭐ ${ST.qStreak}連続`);}
+    else{ST.xp+=3;ST.qStreak=0;toast("おしい！ +3 XP（復習に戻すよ）");}
+    save(); checkAch(); $("#streak").textContent=ST.streak; $("#xp").textContent=ST.xp;
+    setTimeout(()=>{i++;render();},1600);
+  };
+  $("#clchk").onclick=finish;
+  $("#clz").addEventListener("keydown",e=>{ if(e.key==="Enter")finish(); });
+  $("#clhint").onclick=()=>{ const c=$("#clz"); c.value=w.word[0]; c.focus(); };
+  setTimeout(()=>{const c=$("#clz");c&&c.focus();},150);
 }
 
 /* 選択肢生成：kind=meaning(意味4択) / word2(英単語+意味) */
