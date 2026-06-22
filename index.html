@@ -1714,8 +1714,8 @@ function renderQuiz(P){
   if(i>=P.length) return renderDone("クイズ全問終了！");
   const w=P[i];
   stage.innerHTML=`<div class="card">${groupChip(w)}<div class="qword">${w.word}${say(w.word)}</div><div class="qkana">${w.kana}</div>
-    <div class="qask">意味はどれ？</div><div class="choices" id="ch">${mkChoices(w,"meaning")}</div></div>`;
-  bindChoices(w,()=>i++<P.length&&render());
+    <div class="qask">意味はどれ？</div>${quizHintBlock(w)}${quizExBlock(w)}<div class="choices" id="ch">${mkChoices(w,"meaning")}</div></div>`;
+  bindChoices(w,()=>i++<P.length&&render()); bindHint(w); bindEx(w);
 }
 /* 語源クイズ */
 function renderRoot(P){
@@ -1749,6 +1749,30 @@ function mkChoices(w,kind){
     if(kind==="word2") return `<button class="choice" data-ok="${ok}"><b>${o.word}</b> <span style="color:var(--sub);font-size:13px">${o.meaning}</span></button>`;
     return `<button class="choice" data-ok="${ok}">${o.meaning}</button>`;
   }).join("");
+}
+/* 4択クイズの語源ヒント（設定でON/OFF・タップで分解のみ表示） */
+function quizHintBlock(w){
+  if(ST.quizHint===false) return "";
+  if(!rootHint(w)) return "";
+  return `<div style="text-align:center;margin:2px 0 6px">
+    <button class="btn ghost" id="hintbtn" style="padding:6px 16px;font-size:13px;width:auto;display:inline-block">🧩 語源ヒントを見る</button>
+    <div class="dirlabel" id="hintreveal" style="display:none;margin-top:6px"></div></div>`;
+}
+function bindHint(w){
+  const hb=$("#hintbtn"); if(!hb) return;
+  hb.onclick=()=>{ const r=$("#hintreveal"); r.textContent="🧩 "+rootHint(w); r.style.display="block"; hb.style.display="none"; };
+}
+/* 4択クイズの英語例文ヒント（設定でON/OFF・タップで英文のみ表示、和訳は伏せる） */
+function quizExBlock(w){
+  if(ST.quizEx===false) return "";
+  if(!(w.ex&&w.ex.en)) return "";
+  return `<div style="text-align:center;margin:2px 0 6px">
+    <button class="btn ghost" id="exbtn" style="padding:6px 16px;font-size:13px;width:auto;display:inline-block">📖 例文を見る</button>
+    <div class="dirlabel" id="exreveal" style="display:none;margin-top:6px;font-style:italic;line-height:1.5"></div></div>`;
+}
+function bindEx(w){
+  const eb=$("#exbtn"); if(!eb) return;
+  eb.onclick=()=>{ const r=$("#exreveal"); r.innerHTML="📖 "+w.ex.en+" "+say(ttsClean(w.ex.en),1); r.style.display="block"; eb.style.display="none"; };
 }
 let answered=false;
 function bindChoices(w,after,onReveal){
@@ -1832,6 +1856,9 @@ function renderReviewCard(){
 /* ============ 設定・バックアップ ============ */
 function renderSettings(){
   stage.innerHTML=`<div class="grow" style="align-items:stretch">
+    <div class="sectitle">🧩 学習設定</div>
+    <label class="rec" style="cursor:pointer;justify-content:space-between"><span class="rw" style="flex:1">4択クイズで「語源ヒント」ボタンを表示</span><input type="checkbox" id="hinttoggle" style="width:22px;height:22px;accent-color:var(--accent)"></label>
+    <label class="rec" style="cursor:pointer;justify-content:space-between"><span class="rw" style="flex:1">4択クイズで「例文」ボタンを表示</span><input type="checkbox" id="extoggle" style="width:22px;height:22px;accent-color:var(--accent)"></label>
     <div class="sectitle">⚙️ 設定・データ管理</div>
     <div class="empty" style="padding:8px 4px;text-align:left;font-size:13px">進捗（XP・覚えた単語・復習記録・実績）は、このスマホのブラウザ内にだけ保存されています。万一に備え、ときどき下のバックアップを取っておくと安心です。</div>
     <div class="sectitle">💾 バックアップ（書き出し）</div>
@@ -1844,6 +1871,10 @@ function renderSettings(){
     <div class="sectitle">⚠️ リセット</div>
     <div class="controls"><button class="btn again wide" id="reset">進捗をすべて消す</button></div>
   </div>`;
+  $("#hinttoggle").checked = ST.quizHint!==false;
+  $("#hinttoggle").onchange=e=>{ ST.quizHint=e.target.checked; save(); toast(e.target.checked?"語源ヒント：ON 🧩":"語源ヒント：OFF"); };
+  $("#extoggle").checked = ST.quizEx!==false;
+  $("#extoggle").onchange=e=>{ ST.quizEx=e.target.checked; save(); toast(e.target.checked?"例文ヒント：ON 📖":"例文ヒント：OFF"); };
   $("#exp").onclick=exportData;
   $("#copy").onclick=()=>{ try{navigator.clipboard.writeText(JSON.stringify(ST)).then(()=>toast("コピーしました 📋"),()=>toast("コピーできませんでした"));}catch(e){toast("コピーできませんでした");} };
   $("#imp").onclick=()=>{ try{ importData(JSON.parse($("#imptext").value)); }catch(e){ toast("読み込めません（形式エラー）"); } };
