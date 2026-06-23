@@ -2131,14 +2131,29 @@ function renderCloze(P){
   if(CP.length===0) return stage.innerHTML=`<div class="empty">このコースには穴埋めできる例文がありません。</div>`;
   if(i>=CP.length) return renderDone("穴埋めテスト終了！");
   const w=CP[i];
+  const choiceMode = ST.clozeMode==="choice";
   const blanked=w.ex.en.replace(/<u>.*?<\/u>/,'<span class="blank">______</span>');
+  const toggle=`<div class="controls" style="margin:0 0 8px;gap:6px">
+    <button class="btn ${choiceMode?'ghost':'good'}" id="m_type" style="padding:6px 14px;font-size:13px">⌨️ 綴り入力</button>
+    <button class="btn ${choiceMode?'good':'ghost'}" id="m_choice" style="padding:6px 14px;font-size:13px">📋 4択</button></div>`;
+  let body;
+  if(choiceMode){
+    const opts=shuffle([w,...shuffle(WORDS.filter(x=>x.id!==w.id)).slice(0,3)]);
+    body=`<div class="choices" id="ch">${opts.map(o=>`<button class="choice" data-ok="${o.id===w.id}"><b>${o.word}</b></button>`).join("")}</div>`;
+  } else {
+    body=`<input id="clz" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="英単語を入力" style="width:100%;text-align:center;font-size:18px;border-radius:12px;background:var(--card2);color:var(--text);border:1px solid #343a66;padding:11px">
+    <div class="controls" style="margin-top:10px"><button class="btn ghost" id="clhint">最初の文字💡</button><button class="btn good" id="clchk">解答する</button></div>
+    <div class="reveal" id="rev"></div>`;
+  }
   stage.innerHTML=`<div class="card">${groupChip(w)}
+    ${toggle}
     <div class="qask">空所に入る英単語は？</div>
     <div class="cloze">${blanked}</div>
     <div style="text-align:center;color:var(--sub);font-size:13px;margin:2px 0 8px">ヒント（意味）：<b style="color:var(--text)">${w.meaning}</b>　${say(ttsClean(w.ex.en),1)}</div>
-    <input id="clz" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="英単語を入力" style="width:100%;text-align:center;font-size:18px;border-radius:12px;background:var(--card2);color:var(--text);border:1px solid #343a66;padding:11px">
-    <div class="controls" style="margin-top:10px"><button class="btn ghost" id="clhint">最初の文字💡</button><button class="btn good" id="clchk">解答する</button></div>
-    <div class="reveal" id="rev"></div></div>`;
+    ${body}</div>`;
+  $("#m_type").onclick=()=>{ ST.clozeMode="type"; save(); render(); };
+  $("#m_choice").onclick=()=>{ ST.clozeMode="choice"; save(); render(); };
+  if(choiceMode){ bindChoices(w,()=>{i++;render();}); return; }
   const ans=clozeForms(w);
   let done=false;
   const finish=()=>{
