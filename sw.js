@@ -1,5 +1,5 @@
 /* シンプルなオフライン対応サービスワーカー */
-const CACHE = "vocab-app-v3";
+const CACHE = "vocab-app-v4";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", e => {

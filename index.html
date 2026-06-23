@@ -113,6 +113,14 @@
   .wlrow.dup{background:rgba(255,90,122,.18);}
   .cloze{font-size:18px; line-height:1.8; text-align:center; margin:8px 4px;}
   .cloze .blank{color:var(--accent); font-weight:bold; letter-spacing:2px;}
+  .home .hello{font-size:16px; color:var(--sub); margin:4px 2px 12px;}
+  .todaycard{background:linear-gradient(135deg,#5b6cff,#8a7bff); border-radius:18px; padding:20px; text-align:center; color:#fff; box-shadow:0 8px 22px rgba(91,108,255,.35);}
+  .todaycard .tlbl{font-size:13px; opacity:.9;}
+  .todaycard .tbig{font-size:40px; font-weight:800; margin:6px 0; letter-spacing:1px;}
+  .todaycard .tsub{font-size:13px; opacity:.95;}
+  .homestats{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
+  .homestats .gchip{flex:1 1 44%;}
+  .weekbars{display:flex; gap:4px; align-items:flex-end; background:var(--card); border-radius:14px; padding:12px 8px;}
   .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(40px);
     background:var(--card2); padding:12px 20px; border-radius:30px; font-size:14px; opacity:0; transition:.3s; pointer-events:none; box-shadow:0 6px 24px rgba(0,0,0,.4); z-index:9;}
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
@@ -181,6 +189,7 @@
     </div>
   </header>
 
+  <div id="deckctrl">
   <div class="deckrow">
     <label>コース</label>
     <select id="deck"></select>
@@ -193,6 +202,7 @@
       <option value="shuffle">🔀 シャッフル</option>
     </select>
   </div>
+  </div>
 
   <div class="progress"><div id="bar"></div></div>
   <div class="counter" id="counter"></div>
@@ -200,7 +210,8 @@
   <div class="stage" id="stage"></div>
 
   <div class="tabbar">
-    <div class="tab active" data-mode="flash">📖 単語帳</div>
+    <div class="tab active" data-mode="home">🏠 ホーム</div>
+    <div class="tab" data-mode="flash">📖 単語帳</div>
     <div class="tab" data-mode="quiz">✏️ 4択クイズ</div>
     <div class="tab" data-mode="root">🧩 語源クイズ</div>
     <div class="tab" data-mode="listen">🔊 音声クイズ</div>
@@ -1788,8 +1799,14 @@ ST.mastered=ST.mastered||{}; ST.ach=ST.ach||{};
 ST.qStreak=ST.qStreak||0; ST.qBest=ST.qBest||0;
 ST.srs=ST.srs||{};   // {id:{box,due,seen,done}}
 ST.order=ST.order||"weak";   // 出題順：weak=苦手優先 / seq=順番 / shuffle
+ST.timeLog=ST.timeLog||{};   // {YYYY-MM-DD: 学習秒数}
 function save(){ localStorage.setItem("vocab_state",JSON.stringify(ST)); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
+/* 学習時間の計測：アプリが前面に見えている間、10秒ごとに今日へ加算 */
+function studyHeartbeat(){ if(document.visibilityState!=="visible")return; const t=todayStr(); ST.timeLog[t]=(ST.timeLog[t]||0)+10; save(); }
+function studyDays(){ return Object.keys(ST.timeLog).filter(d=>ST.timeLog[d]>0).length; }
+function totalTime(){ return Object.values(ST.timeLog).reduce((a,b)=>a+b,0); }
+function fmtTime(sec){ const m=Math.round(sec/60); if(m<1)return Math.max(sec,0)+"秒"; if(m<60)return m+"分"; return Math.floor(m/60)+"時間"+(m%60)+"分"; }
 function bumpStreak(){ const t=todayStr(); if(ST.lastDay===t)return;
   const y=new Date(Date.now()-864e5).toISOString().slice(0,10);
   ST.streak=(ST.lastDay===y)?ST.streak+1:1; ST.lastDay=t; save(); }
@@ -1961,7 +1978,8 @@ function lookScene(){
 /* ============ レンダリング ============ */
 const $=s=>document.querySelector(s);
 const stage=$("#stage");
-let mode="flash", i=0, session=[];
+let mode="home", i=0, session=[];
+function switchMode(m){ document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.mode===m)); mode=m; RQ=null; startSession(); render(); }
 /* 苦手優先の並び替え：習熟度(box)が低い順。未学習は中間、覚えた語は後ろ。同点はランダム */
 function weakScore(w){ const s=ST.srs[w.id]; return s? s.box : 2.4; }
 function orderPool(P){
@@ -1975,7 +1993,10 @@ function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");cl
 
 function render(){
   $("#streak").textContent=ST.streak; $("#xp").textContent=ST.xp;
-  $("#deck").disabled = (mode==="review"||mode==="grow"||mode==="settings"||mode==="help");
+  const studyMode = ["flash","quiz","root","listen","cloze"].includes(mode);
+  $("#deckctrl").style.display = studyMode ? "" : "none";
+  $("#deck").disabled = !studyMode;
+  if(mode==="home"){ bar(0); $("#counter").textContent=""; return renderHome(); }
   if(mode==="grow"){ bar(0); $("#counter").textContent=""; return renderGrow(); }
   if(mode==="review"){ bar(0); $("#counter").textContent=""; return renderReview(); }
   if(mode==="settings"){ bar(0); $("#counter").textContent=""; return renderSettings(); }
@@ -1989,6 +2010,46 @@ function render(){
   ({flash:renderFlash,quiz:renderQuiz,root:renderRoot,listen:renderListen,cloze:renderCloze}[mode])(P);
 }
 function bar(p){ $("#bar").style.width=p+"%"; }
+
+/* 🏠 ホーム：学習日・時間ダッシュボード（スタディサプリ風） */
+function renderHome(){
+  const t=todayStr();
+  const todaySec=ST.timeLog[t]||0;
+  const due=dueWords().length;
+  const hour=new Date().getHours();
+  const greet = hour<5?"こんばんは":hour<11?"おはようございます":hour<18?"こんにちは":"こんばんは";
+  // 直近7日の棒グラフ
+  const days=[]; for(let k=6;k>=0;k--){ const d=new Date(Date.now()-k*864e5); const ds=d.toISOString().slice(0,10); days.push({label:"日月火水木金土"[d.getDay()],sec:ST.timeLog[ds]||0,today:ds===t}); }
+  const maxSec=Math.max(60,...days.map(d=>d.sec));
+  const bars=days.map(d=>{
+    const h=d.sec?Math.max(Math.round(d.sec/maxSec*62),6):3;
+    return `<div style="flex:1;text-align:center">
+      <div style="height:66px;display:flex;align-items:flex-end;justify-content:center"><div style="width:62%;height:${h}px;border-radius:6px 6px 0 0;background:${d.sec?(d.today?'var(--gold)':'var(--accent)'):'#2a2f55'}"></div></div>
+      <div style="font-size:11px;color:${d.today?'var(--gold)':'var(--sub)'};margin-top:5px;font-weight:${d.today?'700':'400'}">${d.label}</div>
+      <div style="font-size:10px;color:var(--sub);height:13px">${d.sec?Math.round(d.sec/60)+'分':''}</div>
+    </div>`;
+  }).join("");
+  stage.innerHTML=`<div class="home">
+    <div class="hello">${greet} 👋</div>
+    <div class="todaycard">
+      <div class="tlbl">今日の学習時間</div>
+      <div class="tbig" id="tbig">${fmtTime(todaySec)}</div>
+      <div class="tsub">🔥 ${ST.streak}日連続　・　復習待ち ${due}語</div>
+    </div>
+    <div class="homestats">
+      <div class="gchip">📆 学習日数 <b>${studyDays()}</b></div>
+      <div class="gchip">⏱ 累計 <b>${fmtTime(totalTime())}</b></div>
+      <div class="gchip">🍎 覚えた <b>${mc()}</b></div>
+      <div class="gchip">⭐ XP <b>${ST.xp}</b></div>
+    </div>
+    <div class="sectitle">この7日間の学習</div>
+    <div class="weekbars">${bars}</div>
+    <div class="controls" style="margin-top:18px"><button class="btn good wide" id="startToday">${due?`今日の復習をはじめる（${due}語）📅`:`学習をはじめる 📖`}</button></div>
+    <div class="controls" style="margin-top:8px"><button class="btn ghost wide" id="goFlash">📖 単語帳をひらく</button></div>
+  </div>`;
+  $("#startToday").onclick=()=>switchMode(due?"review":"flash");
+  $("#goFlash").onclick=()=>switchMode("flash");
+}
 
 /* 📘 使い方ガイド ＋ 開発者用 単語一覧 */
 function renderHelp(){
@@ -2383,6 +2444,8 @@ document.querySelectorAll(".tab").forEach(t=>{ t.onclick=()=>{
   mode=t.dataset.mode; RQ=null; startSession(); render(); };
 });
 startSession(); render();
+/* 学習時間の自動計測（10秒ごと・前面表示中のみ）。ホーム表示中は数値も更新 */
+setInterval(()=>{ studyHeartbeat(); if(mode==="home"){ const e=$("#tbig"); if(e) e.textContent=fmtTime(ST.timeLog[todayStr()]||0); } },10000);
 </script>
 </body>
 </html>
