@@ -2046,6 +2046,7 @@ function renderHome(){
     <div class="weekbars">${bars}</div>
     <div class="controls" style="margin-top:18px"><button class="btn good wide" id="startToday">${due?`今日の復習をはじめる（${due}語）📅`:`学習をはじめる 📖`}</button></div>
     <div class="controls" style="margin-top:8px"><button class="btn ghost wide" id="goFlash">📖 単語帳をひらく</button></div>
+    <div style="text-align:center;color:var(--sub);font-size:11px;margin-top:16px;line-height:1.6">🧩 語源ヒントは「覚えやすさ」を優先した簡略な説明です（厳密な語源辞典ではありません）</div>
   </div>`;
   $("#startToday").onclick=()=>switchMode(due?"review":"flash");
   $("#goFlash").onclick=()=>switchMode("flash");
@@ -2293,8 +2294,10 @@ function bindChoices(w,after,onReveal){
 function renderDone(msg){
   bar(100);
   stage.innerHTML=`<div class="done"><div class="big">🎉</div><h2>${msg}</h2><p>累計 ⭐${ST.xp} XP ／ 🔥${ST.streak}日連続</p>
-   <div class="controls" style="margin-top:20px"><button class="btn ghost wide" id="again">もう1周する 🔄</button></div></div>`;
+   <div class="controls" style="margin-top:20px"><button class="btn ghost wide" id="again">もう1周する 🔄</button></div>
+   <div class="controls" style="margin-top:8px"><button class="btn good wide" id="toHome">🏠 ホームに戻る</button></div></div>`;
   $("#again").onclick=()=>{startSession();render();};
+  $("#toHome").onclick=()=>switchMode("home");
 }
 
 /* ============ 復習（SRS） ============ */
@@ -2308,7 +2311,8 @@ function renderReview(){
     const s=ST.srs[w.id];
     return `<div class="rec ${s.box>=5?'done':''}"><span class="rw">${w.word}</span><span class="rk">${w.meaning}</span><span class="stars" style="color:${s.box>=5?'var(--gold)':'var(--sub)'}">${stars(s.box)}</span></div>`;
   }).join("");
-  stage.innerHTML=`<div class="rev-hero">
+  stage.innerHTML=`<div style="margin-bottom:10px"><button class="btn ghost" id="toHome" style="padding:7px 14px;font-size:13px;width:auto">🏠 ホームに戻る</button></div>
+    <div class="rev-hero">
       <div class="rev-num">${due.length}</div><div class="rev-lbl">今日 復習する単語</div>
       <div class="controls" style="margin-top:16px">
         ${due.length?`<button class="btn good wide" id="startDue">復習をはじめる 📅</button>`:`<button class="btn ghost wide" id="practice">${learned.length?"今は0語。全部を練習する 🔁":"まだ単語を学んでいません"}</button>`}
@@ -2322,6 +2326,7 @@ function renderReview(){
     ${learned.length?`<div class="sectitle">🗂️ 記録（★5で「完全に覚えた」）</div><div class="recordlist">${recRows}</div>
       ${due.length?`<div class="controls" style="margin-top:6px"><button class="btn ghost wide" id="practice">復習待ちが無くても全部練習する 🔁</button></div>`:""}`
      :`<div class="empty">まず「📖暗記」や「✏️意味」で単語を覚えると、ここに記録が貯まり、最適なタイミングで復習に出てきます。</div>`}`;
+  $("#toHome").onclick=()=>switchMode("home");
   const sd=$("#startDue"); if(sd) sd.onclick=()=>startReview(due);
   const pr=$("#practice"); if(pr&&learned.length) pr.onclick=()=>startReview(learned);
 }
